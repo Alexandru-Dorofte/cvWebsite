@@ -363,3 +363,24 @@ footer {
     width: 26px;
     height: 26px;
 }
+.mini-footer {
+    border-top: 1px solid #333;
+    padding: 8px 20px;
+    text-align: center;
+    color: #7b777b;
+    font-size: 12px;
+}
+.mini-footer .mug {
+    display: inline-block;
+    margin-left: 4px;
+    animation: steam 2s ease-in-out infinite;
+}
+@keyframes steam {
+    0%, 100% { transform: rotate(0); }
+    50% { transform: rotate(-12deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mini-footer .mug {
+    animation: none;
+  }
+}
