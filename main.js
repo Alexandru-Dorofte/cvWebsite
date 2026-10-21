@@ -5,7 +5,9 @@ const textArray = [
     "I'm a Site Reliability Engineer at TikTok.",
     "I keep big systems fast, stable and boring.",
     "I studied Software Engineering at DCU.",
-    "In my spare time I build stuff."
+    "In my spare time I build stuff.",
+    "Let's connect on LinkedIn!",
+    "Email me for my résumé."
 ];
 const typingDelay = 100;
 const erasingDelay = 100;
