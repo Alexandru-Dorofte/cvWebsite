@@ -5,7 +5,7 @@ const textArray = [
     "I'm a Site Reliability Engineer at TikTok.",
     "I keep big systems fast, stable and boring.",
     "I studied Software Engineering at DCU.",
-    "In my spare time I build apps for my Pebble watch."
+    "In my spare time I build stuff."
 ];
 const typingDelay = 100;
 const erasingDelay = 100;
@@ -45,13 +45,12 @@ document.addEventListener("DOMContentLoaded", function() {
    if(textArray.length) setTimeout(type, typingDelay + 250);
 });
 
-// slower eased scroll than the browser's built-in smooth scroll
 document.addEventListener("DOMContentLoaded", function() {
     document.querySelector(".scroll-dwn-link").addEventListener("click", function(e) {
         if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
         e.preventDefault();
         const startY = window.scrollY;
-        const distance = document.querySelector(".second").getBoundingClientRect().top;
+        const distance = document.querySelector(".experience").getBoundingClientRect().top;
         const duration = 900;
         const start = performance.now();
         function step(now) {
