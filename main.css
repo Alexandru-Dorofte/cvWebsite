@@ -141,19 +141,15 @@ a:hover {
 footer {
     color: white;
     border-top: 1px solid #333;
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
     padding: 10px 20px;
 }
-footer h4 {
-    margin: 0;
-    font-size: 16px;
-}
 .socials {
     display: flex;
-    justify-self: end;
     align-items: center;
     gap: 16px;
 }
@@ -318,26 +314,6 @@ footer h4 {
 @media (prefers-reduced-motion: reduce) {
   .say-hi-arrow {
     animation: none;
-  }
-}
-@media (max-width: 576px) {
-  footer {
-    grid-template-columns: 1fr auto;
-    grid-template-areas: "name socials" "copy copy";
-    row-gap: 6px;
-  }
-  footer h4 {
-    grid-area: name;
-  }
-  .socials {
-    grid-area: socials;
-  }
-  .copyright {
-    grid-area: copy;
-    justify-self: center;
-  }
-  .say-hi {
-    display: none;
   }
 }
 .copyright {
