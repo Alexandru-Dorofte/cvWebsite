@@ -136,11 +136,6 @@ a:hover {
       opacity: 0;
     }
   }
-  .third{
-    /* height: 60vh; */
-    background-color: rgba(0, 0, 0, 0.159);
-    color: white;
-  }
 
 footer {
     color: white;
@@ -167,15 +162,6 @@ footer h4 {
 .socials svg {
     width: 28px;
     height: 28px;
-}
-
-.project img {
-    height: 200px;
-    image-rendering: pixelated;
-    margin-bottom: 15px;
-}
-.project {
-    padding-bottom: 20px;
 }
 
 @media (max-width: 576px) {
