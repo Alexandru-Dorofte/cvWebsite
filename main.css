@@ -136,11 +136,6 @@ a:hover {
       opacity: 0;
     }
   }
-  .second{
-    /* height: 60vh; */
-    background-color: black;
-    color: white;
-  }
   .third{
     /* height: 60vh; */
     background-color: rgba(0, 0, 0, 0.159);
@@ -150,6 +145,28 @@ a:hover {
 footer {
     color: white;
     border-top: 1px solid #333;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+}
+footer h4 {
+    margin: 0;
+    font-size: 16px;
+}
+.socials {
+    display: flex;
+    justify-self: end;
+    align-items: center;
+    gap: 16px;
+}
+.socials a {
+    display: flex;
+}
+.socials svg {
+    width: 28px;
+    height: 28px;
 }
 
 .project img {
@@ -176,6 +193,8 @@ footer {
 
 .experience {
     color: white;
+    background-color: black;
+    border-top: 1px solid #333;
     padding: 0 16px 40px;
     text-align: center;
 }
@@ -184,7 +203,7 @@ footer {
     list-style: none;
     max-width: 1100px;
     margin: 10px auto 0;
-    padding: 20px 0 10px; /* room for the breathing glow, else overflow clips it */
+    padding: 20px 0 10px;
     overflow-x: auto;
 }
 .htl li {
@@ -193,7 +212,6 @@ footer {
     min-width: 110px;
     padding: 40px 10px 0;
 }
-/* line joining each dot to the next */
 .htl li::before {
     content: "";
     position: absolute;
@@ -257,4 +275,73 @@ footer {
     background-color: rgba(255, 255, 255, .05);
     color: #bbb;
     font-size: 13px;
+}
+
+@media (max-width: 576px) {
+  .first {
+    height: 100svh;
+  }
+  .first p {
+    min-height: 7.5em;
+  }
+  .htl {
+    flex-direction: column;
+    text-align: left;
+    overflow-x: visible;
+    padding-left: 10px;
+  }
+  .htl li {
+    padding: 0 0 28px 40px;
+  }
+  .htl li::before,
+  .htl li:first-child::before {
+    top: 0;
+    bottom: 0;
+    left: 9px;
+    right: auto;
+    width: 2px;
+    height: auto;
+  }
+  .htl li:first-child::before {
+    top: 10px;
+  }
+  .htl li:last-child::before {
+    bottom: auto;
+    height: 10px;
+  }
+  .htl .dot {
+    left: 0;
+    margin-left: 0;
+  }
+}
+.say-hi {
+    font-size: 14px;
+    color: #7b777b;
+    font-style: italic;
+}
+.say-hi-arrow {
+    display: inline-block;
+    animation: nudge 1.5s ease-in-out infinite;
+}
+@keyframes nudge {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .say-hi-arrow {
+    animation: none;
+  }
+}
+@media (max-width: 576px) {
+  footer {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .socials {
+    justify-self: center;
+  }
+}
+.copyright {
+    color: #7b777b;
+    font-size: 12px;
 }
