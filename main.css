@@ -64,6 +64,7 @@ a:hover {
   }
   .first p {
     font-size: 40px;
+    margin-top: 24px;
     text-align: center;
     align-items: right;
     overflow: hidden;
@@ -321,11 +322,22 @@ footer h4 {
 }
 @media (max-width: 576px) {
   footer {
-    grid-template-columns: 1fr;
-    justify-items: center;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "name socials" "copy copy";
+    row-gap: 6px;
+  }
+  footer h4 {
+    grid-area: name;
   }
   .socials {
+    grid-area: socials;
+  }
+  .copyright {
+    grid-area: copy;
     justify-self: center;
+  }
+  .say-hi {
+    display: none;
   }
 }
 .copyright {
