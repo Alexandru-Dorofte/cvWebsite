@@ -323,15 +323,15 @@
 
         const m = Math.min(W, H);
         if (phone) {
-            galaxy = { x: W * 0.84, y: H * 0.09, r: m * 0.12 };
+            galaxy = { x: W * 0.15, y: H * 0.92, r: m * 0.12 };
             earth = { x: W * 0.13, y: H * 0.08, r: m * 0.09 };
-            giant = { x: W * 0.15, y: H * 0.92, r: m * 0.055 };
+            giant = { x: W * 0.84, y: H * 0.09, r: m * 0.055 };
             hole = { x: W * 0.82, y: H * 0.92, r: m * 0.03 };
             lava = null;
         } else {
-            galaxy = { x: W * 0.86, y: H * 0.22, r: m * 0.12 };
+            galaxy = { x: W * 0.15, y: H * 0.78, r: m * 0.12 };
             earth = { x: W * 0.13, y: H * 0.24, r: m * 0.09 };
-            giant = { x: W * 0.15, y: H * 0.78, r: m * 0.065 };
+            giant = { x: W * 0.86, y: H * 0.22, r: m * 0.065 };
             hole = { x: W * 0.86, y: H * 0.78, r: m * 0.035 };
             lava = { x: W * 0.07, y: H * 0.5, r: m * 0.045 };
         }
