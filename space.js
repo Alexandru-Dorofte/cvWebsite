@@ -13,11 +13,10 @@
     const RAMP = " .:-=+*#%@";
     // muted accent colours, kept soft so the scene stays mostly black, grey and white
     const C = {
-        ocean: "#3a86e8", land: "#5cc25a", desert: "#dcb466", cloud: "#e6eef6", halo: "#6fb2ff",
+        ocean: "#3a86e8", land: "#5cc25a", desert: "#dcb466", halo: "#6fb2ff",
         violet: "#a487d6", lilac: "#d8ccf0", rose: "#e2a6d2", dusk: "#6b5a8c", core: "#f4ead8",
         hot: "#ffc27a", amber: "#e8582c", ember: "#8e2618",
-        sand: "#d6bd8a", tan: "#a88b5e", ringA: "#cdb98e", ringB: "#8c7853",
-        magma: "#ff9147", rock: "#7d6e64"
+        sand: "#d6bd8a", tan: "#a88b5e", ringA: "#cdb98e", ringB: "#8c7853"
     };
     const SMOKE_CHARS = "+:··.";
     const LIGHT = [0.55, 0.35, 0.76];
@@ -137,7 +136,7 @@
 
     let W = 0, H = 0, dpr = 1, phone = false, fs = 13, cw = 8, lh = 15;
     let sprites = {}, stars = [];
-    let galaxy, earth, giant, lava, hole;
+    let galaxy, earth, giant, hole;
     let t = 0, mx = 0, my = 0, sx = 0, sy = 0;
     const particles = [], rockets = [], shooters = [];
     let lastRocket = "", nextRocket = 2, nextShooter = 3, nextFlyby = 3, turn = 0, hail = null, lm = null, iss = null;
@@ -169,10 +168,10 @@
     }
 
     // cells of a char grid covering a disc of radius r, with sphere normals
-    function sphereCells(r) {
+    function sphereCells(r, sw = cw, sh = lh) {
         const out = [];
-        for (let y = -Math.floor(r / lh) * lh; y <= r; y += lh) {
-            for (let x = -Math.floor(r / cw) * cw; x <= r; x += cw) {
+        for (let y = -Math.floor(r / sh) * sh; y <= r; y += sh) {
+            for (let x = -Math.floor(r / sw) * sw; x <= r; x += sw) {
                 const d2 = (x * x + y * y) / (r * r);
                 if (d2 > 1) continue;
                 out.push({ x, y, nx: x / r, ny: y / r, nz: Math.sqrt(1 - d2) });
@@ -183,69 +182,104 @@
 
     const lit = p => Math.max(0, p.nx * LIGHT[0] + p.ny * LIGHT[1] + p.nz * LIGHT[2]);
 
-    function surfaceCells(r) {
-        return sphereCells(r).map(p => ({ x: p.x, y: p.y, lat: Math.asin(-p.ny), lon: Math.atan2(p.nx, p.nz), light: lit(p) }));
+    function surfaceCells(r, sw, sh) {
+        return sphereCells(r, sw, sh).map(p => ({ x: p.x, y: p.y, lat: Math.asin(-p.ny), lon: Math.atan2(p.nx, p.nz), light: lit(p) }));
     }
 
-    // continents on a 10 degree grid, north pole first, starting at 180 W
+    // land on a 3 degree grid (Natural Earth 1:110m), north pole first, starting at 180 W
     const WORLD = [
-        "              ##                    ",
-        "      ##########          ########  ",
-        " ################ ##################",
-        " #######  ###    #################  ",
-        "     #######     ################   ",
-        "      #####      ###############    ",
-        "       ###      ######## ## ##      ",
-        "       ###      #######  # ## #     ",
-        "          ####   ######     ##      ",
-        "          #####    ###       ####   ",
-        "          #####    ####       ###   ",
-        "           ###     ###       ####   ",
-        "          ###      ##        ####   ",
-        "          ##                      # ",
-        "           #                        ",
-        "####################################",
-        "####################################",
-        "####################################"
+        "                                                                                                                        ",
+        "                                                                                                                        ",
+        "                               ########     #########                                                                   ",
+        "                            #######   ################          ## ##                      ##                           ",
+        "                   ##  #  # ######   ################                             #           ###                       ",
+        "                   ##   # ####  ##       ############                         #        ############# #     #            ",
+        "      ####            ####  # #######     #########                 ##            ## ############################       ",
+        " ################################################################         ##        #                                   ",
+        "      ########################### ####     ###       ##         ### ################################################### ",
+        "     ########################     ##        ##                #### ############################################# # ###  ",
+        "        #     ###############     ### #                   #   # ##  #######################################      #      ",
+        "                ###############   ######                  #     #  ######################################       ##      ",
+        "                 ################ #######                # #################################################    #       ",
+        "                   ###################                     #################################################            ",
+        "                   ###################                     ########### # #### ############################ #            ",
+        "                   ##################                    # ### ######    ### ############################  #            ",
+        "                   ################                      ###     ###  ####### ###################### ##                 ",
+        "                   ################                      ###    #  # ######## ####################### #   #             ",
+        "                    ##############                        #####         ############################    ##              ",
+        "                     ############                        ########  ##   #############################  #                ",
+        "                       #####    #                       ############### #### ########################                   ",
+        "                        ####                           ######################   ####################                    ",
+        "                         ##      #                     ################# #######   ####### #######                      ",
+        "                         ###  #     #                  #################  #####     ####   #### #                       ",
+        "                           ####                       ################### ####      ###    #####    #                   ",
+        "                              ##                      ######################         ##      ###                        ",
+        "                               #   ### #               ######################        ##        #                        ",
+        "                                  ######                #####################                        #                  ",
+        "                                  #########              #    ##############                #     ##                    ",
+        "                                  #########                    ############                  ## ###                     ",
+        "                                 ############                  ###########                    #  ## #   #               ",
+        "                                 ##############                 #########                     #          ###            ",
+        "                                 ###############                #########                       ##        ###           ",
+        "                                  ##############                #########                                               ",
+        "                                   ############                 ##########  #                          ##  #            ",
+        "                                    ###########                 #########  ##                        ##### ##           ",
+        "                                     ##########                 ########   #                        #########           ",
+        "                                     #########                   #######  ##                      ############          ",
+        "                                    ########                     ######                           #############         ",
+        "                                    ########                     ######                           #############         ",
+        "                                    #######                       ####                             ############         ",
+        "                                    ######                        #                                #      ####          ",
+        "                                   ######                                                                  ###        # ",
+        "                                   ####                                                                               # ",
+        "                                    ##                                                                               #  ",
+        "                                   ###                                                                              #   ",
+        "                                   ##                                                                                   ",
+        "                                   ##                                                                                   ",
+        "                                                                                                                        ",
+        "                                                                                                                        ",
+        "                                                                                                                        ",
+        "                                       #                                                                                ",
+        "                                     #                                      ####       ######################           ",
+        "                                    ###                       # ### ############### ##############################      ",
+        "                   #      # #### #  ####               #############################################################    ",
+        "           ##########################              ################################################################     ",
+        "      #   ########################         ###    ################################################################      ",
+        "         ###############################  #########################################################################     ",
+        "          #                                                                                                             ",
+        "                                                                                                                        "
     ];
 
     // rotating planets: each surface returns [colour, brightness factor, glow, char] for a point
     // (shared arrays, so nothing is allocated per cell per frame)
-    const ICE = [WHITE, 1.1], CLOUD = [C.cloud, 0.8, false, "~"], LAND = [C.land, 1], DESERT = [C.desert, 1], SEA = [C.ocean, 0.85, false, "-"];
-    const MAGMA = [C.magma, 1, true], ROCK = [C.rock, 0.75], ASH = [DARK, 0.8];
+    const ICE = [WHITE, 1.1], LAND = [C.land, 1], DESERT = [C.desert, 1], SEA = [C.ocean, 0.4, false, "~"];
     const SURFACE = {
         earth(lat, lon) {
             if (Math.abs(lat) > 1.2) return ICE;
-            const cl = lon + t * 0.08;
-            if (Math.sin(4 * cl + lat * 5) * Math.sin(3 * lat + cl) > 0.7) return CLOUD;
-            const c = Math.floor(((lon + Math.PI) / (2 * Math.PI) % 1 + 1) % 1 * 36);
-            const row = Math.min(17, Math.floor((Math.PI / 2 - lat) / Math.PI * 18));
-            if (WORLD[row][c] !== "#") return SEA;
-            return Math.abs(lat) > 0.3 && Math.abs(lat) < 0.55 ? DESERT : LAND;
-        },
-        lava(lat, lon) {
-            const crack = Math.abs(Math.sin(lon * 4 + Math.sin(lat * 5) * 1.5)) * Math.abs(Math.sin(lat * 6 + Math.cos(lon * 3)));
-            if (crack < 0.09) {
-                MAGMA[1] = 0.75 + 0.25 * Math.sin(t * 3 + lon * 5);
-                return MAGMA;
-            }
-            return Math.sin(lon * 2 + lat * 3) > 0.6 ? ROCK : ASH;
+            const f = ((lon + Math.PI) / (2 * Math.PI) % 1 + 1) % 1, row = Math.min(59, Math.floor((Math.PI / 2 - lat) / Math.PI * 60));
+            if (WORLD[row][Math.floor(f * 120)] !== "#") return SEA;
+            // Sahara/Arabia, Kalahari and the Australian outback in sand, the rest green
+            const d = f * 360 - 180, a = lat * 57.3;
+            return (a > 14 && a < 32 && d > -17 && d < 60) || (a < -17 && a > -32 && ((d > 12 && d < 30) || (d > 115 && d < 145))) ? DESERT : LAND;
         }
     };
 
     function drawBody(b, ox, oy) {
         let col = "";
+        if (b.font) ctx.font = b.font;
         for (const c of b.cells) {
             const [next, k, glow, ch] = SURFACE[b.kind](c.lat, c.lon + t * b.spin);
+            if (ch === " ") continue;
             if (next !== col) ctx.fillStyle = col = next;
-            const v = glow ? k : Math.min(1, (0.15 + 0.85 * c.light) * k);
+            const v = glow ? k : Math.min(1, ((b.ambient || 0.15) + (1 - (b.ambient || 0.15)) * c.light) * k);
             ctx.globalAlpha = 0.3 + 0.7 * v;
             ctx.fillText(ch || RAMP[Math.max(1, Math.round(v * 9))], b.x + c.x + ox, b.y + c.y + oy);
         }
+        if (b.font) ctx.font = fs + "px " + FONT;
     }
 
     function drawHalo(b, ox, oy) {
-        const r = b.r * 1.15, n = Math.round(2 * Math.PI * r / (cw * 1.1));
+        const r = b.r * 1.05, n = Math.round(2 * Math.PI * r / (cw * 1.1));
         ctx.fillStyle = C.halo;
         for (let i = 0; i < n; i++) {
             const a = i / n * Math.PI * 2;
@@ -254,13 +288,28 @@
         }
     }
 
-    // a small moon on a tilted orbit, drawn behind or in front of its planet
-    function drawMoonlet(b, speed, reach, ox, oy, front) {
-        const a = t * speed, z = Math.sin(a);
-        if ((z > 0) !== front) return;
-        ctx.fillStyle = GREY;
-        ctx.globalAlpha = front ? 0.9 : 0.45;
-        ctx.fillText(front ? "@" : "o", b.x + Math.cos(a) * b.r * reach + ox, b.y + z * b.r * 0.45 - Math.cos(a) * b.r * 0.3 + oy);
+    // a small cratered moon, baked once
+    function bakeMoon(b) {
+        const r = Math.max(b.r * 0.24, lh * 0.9), sw = cw * 0.6, sh = lh * 0.6;
+        const s = offscreen(r * 2 + sw * 2, r * 2 + sh * 2, Math.round(fs * 0.6));
+        const craters = [[-0.35, -0.3, 0.28], [0.3, 0.25, 0.22], [0.1, -0.55, 0.15], [-0.2, 0.45, 0.18], [0.55, -0.1, 0.14]];
+        for (const p of sphereCells(r, sw, sh)) {
+            const pit = craters.some(([x, y, k]) => (p.nx - x) ** 2 + (p.ny - y) ** 2 < k * k);
+            const v = lit(p) * (pit ? 0.55 : 1);
+            s.g.fillStyle = pit ? DARK : v > 0.6 ? WHITE : GREY;
+            s.g.globalAlpha = 0.35 + 0.65 * v;
+            s.g.fillText(pit ? "o" : RAMP[Math.max(1, Math.round(v * 9))], s.w / 2 + p.x, s.h / 2 + p.y);
+        }
+        b.moon = s;
+        b.moonGlow = glow(r * 1.6, "214,222,240", 0.09);
+    }
+
+    // the moon sits just off the planet's upper right, clear of the hero card, floating gently in a soft glow
+    function drawMoon(b, ox, oy) {
+        const m = b.moon, x = b.x + b.r * 1.45 + ox, y = b.y - b.r * (1 + 0.04 * Math.sin(t * 0.9)) + oy;
+        haze(b.moonGlow, x, y, 0, 1, 0.8 + 0.2 * Math.sin(t * 1.3));
+        ctx.globalAlpha = 1;
+        ctx.drawImage(m.c, x - m.w / 2, y - m.h / 2, m.w, m.h);
     }
 
     // ring points stay put (the baked planet leaves gaps for the front ones); a brightness wave makes them spin
@@ -305,10 +354,10 @@
         return { g, r };
     }
 
-    function haze(h, x, y, tilt, squash) {
+    function haze(h, x, y, tilt, squash, alpha = 1) {
         const c = Math.cos(tilt) * dpr, n = Math.sin(tilt) * dpr;
         ctx.setTransform(c, n, -n * squash, c * squash, x * dpr, y * dpr);
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = alpha;
         ctx.fillStyle = h.g;
         ctx.fillRect(-h.r, -h.r, h.r * 2, h.r * 2);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -439,22 +488,22 @@
         const m = Math.min(W, H);
         if (phone) {
             galaxy = { x: W * 0.82, y: H * 0.92, r: m * 0.12 };
-            earth = { x: W * 0.14, y: H * 0.08, r: m * 0.11 };
+            earth = { x: W * 0.15, y: H * 0.08, r: m * 0.11 };
             giant = { x: W * 0.84, y: H * 0.09, r: m * 0.055 };
-            hole = { x: W * 0.15, y: H * 0.92, r: m * 0.03 };
-            lava = null;
+            hole = { x: W * 0.15, y: H * 0.92, r: m * 0.04 };
         } else {
             galaxy = { x: W * 0.86, y: H * 0.78, r: m * 0.12 };
-            earth = { x: W * 0.13, y: H * 0.24, r: m * 0.11 };
+            earth = { x: W * 0.14, y: H * 0.21, r: m * 0.125 };
             giant = { x: W * 0.86, y: H * 0.22, r: m * 0.065 };
-            hole = { x: W * 0.15, y: H * 0.78, r: m * 0.035 };
-            lava = { x: W * 0.3, y: H * 0.08, r: m * 0.045 };
+            hole = { x: W * 0.15, y: H * 0.78, r: m * 0.045 };
         }
 
-        Object.assign(earth, { kind: "earth", spin: 0.25, cells: surfaceCells(earth.r) });
+        // earth uses a smaller font on a tighter grid so the coastlines show
+        const ef = 0.7;
+        Object.assign(earth, { kind: "earth", spin: 0.15, ambient: 0.5, font: Math.round(fs * ef) + "px " + FONT, cells: surfaceCells(earth.r, cw * ef, lh * ef) });
         buildGalaxy();
-        if (lava) Object.assign(lava, { kind: "lava", spin: 0.08, cells: surfaceCells(lava.r) });
         bakeGiant();
+        bakeMoon(earth);
         buildHole();
 
         if (reduced) still();
@@ -603,11 +652,9 @@
         ctx.drawImage(giant.img.c, giant.x + ox - giant.img.w / 2, giant.y + oy - giant.img.h / 2, giant.img.w, giant.img.h);
         drawRing(giant.front, 0.8, ox, oy);
         drawGalaxy(ox, oy);
-        drawMoonlet(earth, 0.35, phone ? 1.5 : 1.9, ox, oy, false);
         drawHalo(earth, ox, oy);
         drawBody(earth, ox, oy);
-        if (lava) drawBody(lava, ox, oy);
-        drawMoonlet(earth, 0.35, phone ? 1.5 : 1.9, ox, oy, true);
+        drawMoon(earth, ox, oy);
         drawBlackHole(ox, oy);
 
         col = "";
