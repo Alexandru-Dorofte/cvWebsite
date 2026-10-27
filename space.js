@@ -526,10 +526,13 @@
     function launch() {
         const kinds = ["saturn", "shuttle", "falcon", "starship", "soyuz"].filter(k => k !== lastRocket);
         const kind = lastRocket = kinds[Math.floor(Math.random() * kinds.length)];
+        // don't launch right under a low body: there's no room to steer round it
+        let x = rand(W * 0.08, W * 0.92);
+        for (let i = 0; i < 8 && obstacles.some(o => o.y > H * 0.6 && Math.abs(x - o.x) < o.r * 1.3); i++) x = rand(W * 0.08, W * 0.92);
         rockets.push({
-            kind, x: rand(W * 0.08, W * 0.92), y: H + sprites[kind].h,
+            kind, x, y: H + sprites[kind].h,
             h: rand(-0.35, 0.35), turn: rand(-0.12, 0.12),
-            v: rand(70, 120) * (phone ? 0.7 : 1), acc: 0, dodge: 0
+            v: rand(70, 120) * (phone ? 0.7 : 1), acc: 0, dodge: 0, dv: 0
         });
     }
 
@@ -567,17 +570,20 @@
         }
         for (let i = rockets.length - 1; i >= 0; i--) {
             const r = rockets[i], h = sprites[r.kind].h;
-            r.h += r.turn * dt;
-            // steer around bodies ahead (harder the closer they are), then ease back onto course once clear
-            let a = r.h + r.dodge, steer = 0;
+            r.h = Math.max(-0.6, Math.min(0.6, r.h + r.turn * dt));
+            // steer around bodies ahead: each one near the path pulls the heading away from its side,
+            // fading in and out smoothly, and a damped spring eases the rocket onto that heading
+            let target = 0;
             for (const o of obstacles) {
-                const ox = o.x - r.x, oy = o.y - r.y, d = Math.hypot(ox, oy), near = o.r + h * 2.5;
-                if (d > near || Math.sin(a) * ox - Math.cos(a) * oy < 0) continue;
-                steer -= Math.sign(Math.sin(a) * oy + Math.cos(a) * ox || 1) * 2.4 * (1 - Math.max(0, d - o.r) / (near - o.r));
+                const oy = o.y - r.y, near = o.r + h * 3 + 60;
+                if (oy > 0) continue;
+                const d = Math.hypot(o.x - r.x, oy), f = Math.max(0, Math.min(1, 1 - (d - o.r) / (near - o.r)));
+                target += (r.x < o.x ? -1.1 : 1.1) * f * f * (3 - 2 * f);
             }
-            r.dodge = steer ? Math.max(-0.9, Math.min(0.9, r.dodge + steer * dt)) : r.dodge * (1 - Math.min(1, dt * 0.8));
-            a = r.h + r.dodge;
-            const dx = Math.sin(a), dy = -Math.cos(a);
+            target = Math.max(-0.9, Math.min(0.9, target));
+            r.dv += ((target - r.dodge) * 4 - r.dv * 4) * dt;
+            r.dodge += r.dv * dt;
+            const a = r.h + r.dodge, dx = Math.sin(a), dy = -Math.cos(a);
             r.x += dx * r.v * dt;
             r.y += dy * r.v * dt;
             for (r.acc += dt; r.acc > 0.04; r.acc -= 0.04) {
@@ -589,14 +595,13 @@
 
         if ((nextFlyby -= dt) <= 0) {
             nextFlyby = rand(12, 15);
-            const next = turn++ % 4, d = rand(30, 34), vw = sprites.voyager.w;
+            const next = turn++ % 3;
             if (next === 0) {
                 lm = { x: W + sprites.lm.w, v: (W + sprites.lm.w * 2) / rand(20, 24), t: 0 };
             } else if (next === 1) {
-                // Voyager 1 climbs out across the top, Voyager 2 drifts the other way along the bottom
+                // Voyager drifts slowly out across the top
+                const d = rand(50, 56), vw = sprites.voyager.w;
                 voyagers.push({ x: -vw, y: H * 0.16, vx: (W + vw * 2) / d, vy: -H * 0.1 / d, t: 0 });
-            } else if (next === 3) {
-                voyagers.push({ x: W + vw, y: H * 0.8, vx: -(W + vw * 2) / d, vy: H * 0.12 / d, t: 0 });
             } else {
                 const d = rand(24, 28);
                 iss = { x: -sprites.iss.w, y: H * (phone ? 0.12 : 0.04), v: (W + sprites.iss.w * 2) / d, vy: H * (phone ? 0.22 : 0.3) / d };
