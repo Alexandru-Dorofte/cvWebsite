@@ -13,6 +13,7 @@
     const RAMP = " .:-=+*#%@";
     const SMOKE_CHARS = "+:··.";
     const LIGHT = [0.55, 0.35, 0.76];
+    const DRIFT = [4, 9, 16], PAR = [4, 9, 16], BRIGHT = [0.45, 0.6, 0.9];
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -200,20 +201,26 @@
         "####################################"
     ];
 
-    // rotating planets: each surface returns [colour, brightness factor] for a point
+    // rotating planets: each surface returns [colour, brightness factor, glow, char] for a point
+    // (shared arrays, so nothing is allocated per cell per frame)
+    const ICE = [WHITE, 1.1], CLOUD = [GREY, 0.8, false, "~"], LAND = [WHITE, 1], SEA = [DARK, 0.6, false, "-"];
+    const MAGMA = [WHITE, 1, true], ROCK = [GREY, 0.75], ASH = [DARK, 0.8];
     const SURFACE = {
         earth(lat, lon) {
-            if (Math.abs(lat) > 1.2) return [WHITE, 1.1];
+            if (Math.abs(lat) > 1.2) return ICE;
             const cl = lon + t * 0.08;
-            if (Math.sin(4 * cl + lat * 5) * Math.sin(3 * lat + cl) > 0.7) return [GREY, 0.8, false, "~"];
+            if (Math.sin(4 * cl + lat * 5) * Math.sin(3 * lat + cl) > 0.7) return CLOUD;
             const c = Math.floor(((lon + Math.PI) / (2 * Math.PI) % 1 + 1) % 1 * 36);
             const row = Math.min(17, Math.floor((Math.PI / 2 - lat) / Math.PI * 18));
-            return WORLD[row][c] === "#" ? [WHITE, 1] : [DARK, 0.6, false, "-"];
+            return WORLD[row][c] === "#" ? LAND : SEA;
         },
         lava(lat, lon) {
             const crack = Math.abs(Math.sin(lon * 4 + Math.sin(lat * 5) * 1.5)) * Math.abs(Math.sin(lat * 6 + Math.cos(lon * 3)));
-            if (crack < 0.09) return [WHITE, 0.75 + 0.25 * Math.sin(t * 3 + lon * 5), true];
-            return Math.sin(lon * 2 + lat * 3) > 0.6 ? [GREY, 0.75] : [DARK, 0.8];
+            if (crack < 0.09) {
+                MAGMA[1] = 0.75 + 0.25 * Math.sin(t * 3 + lon * 5);
+                return MAGMA;
+            }
+            return Math.sin(lon * 2 + lat * 3) > 0.6 ? ROCK : ASH;
         }
     };
 
@@ -249,8 +256,9 @@
 
     // ring points stay put (the baked planet leaves gaps for the front ones); a brightness wave makes them spin
     function drawRing(pts, base, ox, oy) {
+        let col = "";
         for (const p of pts) {
-            ctx.fillStyle = p.col;
+            if (p.col !== col) ctx.fillStyle = col = p.col;
             ctx.globalAlpha = base * (0.45 + 0.55 * Math.max(0, Math.sin(p.a * 5 - t * 1.6)));
             ctx.fillText(p.ch, giant.x + p.x + ox, giant.y + p.y + oy);
         }
@@ -295,11 +303,13 @@
 
     function drawGalaxy(ox, oy) {
         const tilt = -0.45, ct = Math.cos(tilt), st = Math.sin(tilt);
+        let col = "";
         for (const p of galaxy.pts) {
             const a = p.a + t * 0.12, x = Math.cos(a) * p.r, y = Math.sin(a) * p.r * 0.5;
-            ctx.fillStyle = p.k > 0.7 ? WHITE : GREY;
+            const next = p.k > 0.7 ? WHITE : GREY;
+            if (next !== col) ctx.fillStyle = col = next;
             ctx.globalAlpha = 0.2 + 0.7 * p.k * (0.8 + 0.2 * Math.sin(t * 2 + p.a * 5));
-            ctx.fillText(p.k > 0.92 ? "*" : p.k > 0.72 ? "+" : p.k > 0.52 ? "+" : p.k > 0.38 ? "·" : ".",
+            ctx.fillText(p.k > 0.92 ? "*" : p.k > 0.52 ? "+" : p.k > 0.38 ? "·" : ".",
                 galaxy.x + x * ct - y * st + ox, galaxy.y + x * st + y * ct + oy);
         }
     }
@@ -325,17 +335,20 @@
         Object.assign(hole, { disk, lens });
     }
 
+    function drawDisk(x0, y0, front) {
+        let col = "";
+        for (const p of hole.disk) {
+            if (p.front !== front) continue;
+            const next = p.k > 0.5 ? WHITE : GREY;
+            if (next !== col) ctx.fillStyle = col = next;
+            ctx.globalAlpha = (0.25 + 0.6 * p.k) * (0.55 + 0.45 * Math.sin(p.a * 3 - t * 2.2 + p.k * 4));
+            ctx.fillText(p.ch, x0 + p.x, y0 + p.y);
+        }
+    }
+
     function drawBlackHole(ox, oy) {
         const x0 = hole.x + ox, y0 = hole.y + oy;
-        const disk = front => {
-            for (const p of hole.disk) {
-                if (p.front !== front) continue;
-                ctx.fillStyle = p.k > 0.5 ? WHITE : GREY;
-                ctx.globalAlpha = (0.25 + 0.6 * p.k) * (0.55 + 0.45 * Math.sin(p.a * 3 - t * 2.2 + p.k * 4));
-                ctx.fillText(p.ch, x0 + p.x, y0 + p.y);
-            }
-        };
-        disk(false);
+        drawDisk(x0, y0, false);
         ctx.globalAlpha = 1;
         ctx.fillStyle = BG;
         ctx.beginPath();
@@ -346,7 +359,7 @@
             ctx.globalAlpha = p.k * (0.6 + 0.4 * Math.sin(p.a * 4 + t * 1.8));
             ctx.fillText(p.ch, x0 + p.x, y0 + p.y);
         }
-        disk(true);
+        drawDisk(x0, y0, true);
     }
 
     function resize() {
@@ -385,20 +398,21 @@
                 phase: rand(0, 6.28), speed: rand(0.6, 2.2)
             });
         }
+        stars.sort((a, b) => a.layer - b.layer);
 
         const m = Math.min(W, H);
         if (phone) {
-            galaxy = { x: W * 0.15, y: H * 0.92, r: m * 0.12 };
+            galaxy = { x: W * 0.82, y: H * 0.92, r: m * 0.12 };
             earth = { x: W * 0.14, y: H * 0.08, r: m * 0.11 };
             giant = { x: W * 0.84, y: H * 0.09, r: m * 0.055 };
-            hole = { x: W * 0.82, y: H * 0.92, r: m * 0.03 };
+            hole = { x: W * 0.15, y: H * 0.92, r: m * 0.03 };
             lava = null;
         } else {
-            galaxy = { x: W * 0.1, y: H * 0.5, r: m * 0.12 };
+            galaxy = { x: W * 0.86, y: H * 0.78, r: m * 0.12 };
             earth = { x: W * 0.13, y: H * 0.24, r: m * 0.11 };
             giant = { x: W * 0.86, y: H * 0.22, r: m * 0.065 };
-            hole = { x: W * 0.86, y: H * 0.78, r: m * 0.035 };
-            lava = { x: W * 0.15, y: H * 0.78, r: m * 0.045 };
+            hole = { x: W * 0.15, y: H * 0.78, r: m * 0.035 };
+            lava = { x: W * 0.07, y: H * 0.5, r: m * 0.045 };
         }
 
         Object.assign(earth, { kind: "earth", spin: 0.25, cells: surfaceCells(earth.r) });
@@ -431,9 +445,8 @@
         sx += (mx - sx) * k;
         sy += (my - sy) * k;
 
-        const drift = [4, 9, 16];
         for (const s of stars) {
-            s.x -= drift[s.layer] * dt;
+            s.x -= DRIFT[s.layer] * dt;
             if (s.x < -20) s.x += W + 40;
         }
 
@@ -531,24 +544,24 @@
         ctx.fillStyle = BG;
         ctx.fillRect(0, 0, W, H);
 
-        const par = [4, 9, 16], bright = [0.45, 0.6, 0.9];
+        let col = "";
         for (const s of stars) {
-            ctx.fillStyle = s.layer === 2 ? WHITE : GREY;
-            ctx.globalAlpha = bright[s.layer] * (0.6 + 0.4 * Math.sin(t * s.speed + s.phase));
-            ctx.fillText(s.ch, s.x + sx * par[s.layer], s.y + sy * par[s.layer]);
+            const next = s.layer === 2 ? WHITE : GREY;
+            if (next !== col) ctx.fillStyle = col = next;
+            ctx.globalAlpha = BRIGHT[s.layer] * (0.6 + 0.4 * Math.sin(t * s.speed + s.phase));
+            ctx.fillText(s.ch, s.x + sx * PAR[s.layer], s.y + sy * PAR[s.layer]);
         }
 
         ctx.fillStyle = WHITE;
         for (const s of shooters) {
             const fade = Math.min(1, s.life * 2);
-            s.pts.forEach((p, i) => {
+            for (let i = 0; i < s.pts.length; i++) {
                 ctx.globalAlpha = fade * (1 - i / s.pts.length);
-                ctx.fillText(i === 0 ? "*" : i < 3 ? "+" : i < 7 ? ":" : ".", p.x, p.y);
-            });
+                ctx.fillText(i === 0 ? "*" : i < 3 ? "+" : i < 7 ? ":" : ".", s.pts[i].x, s.pts[i].y);
+            }
         }
 
         const ox = sx * 6, oy = sy * 6;
-        ctx.globalAlpha = 1;
         drawRing(giant.back, 0.6, ox, oy);
         ctx.globalAlpha = 1;
         ctx.drawImage(giant.img.c, giant.x + ox - giant.img.w / 2, giant.y + oy - giant.img.h / 2, giant.img.w, giant.img.h);
@@ -556,13 +569,15 @@
         drawGalaxy(ox, oy);
         drawMoonlet(earth, 0.35, phone ? 1.5 : 1.9, ox, oy, false);
         drawHalo(earth, ox, oy);
-        for (const b of [earth, lava]) if (b) drawBody(b, ox, oy);
+        drawBody(earth, ox, oy);
+        if (lava) drawBody(lava, ox, oy);
         drawMoonlet(earth, 0.35, phone ? 1.5 : 1.9, ox, oy, true);
         drawBlackHole(ox, oy);
 
+        col = "";
         for (const p of particles) {
-            const f = p.age / p.life;
-            ctx.fillStyle = p.tbl[Math.floor(f * (p.tbl.length - 1))];
+            const f = p.age / p.life, next = p.tbl[Math.floor(f * (p.tbl.length - 1))];
+            if (next !== col) ctx.fillStyle = col = next;
             ctx.globalAlpha = 0.8 * (1 - f);
             ctx.fillText(SMOKE_CHARS[Math.floor(f * SMOKE_CHARS.length)], p.x, p.y);
         }
@@ -572,7 +587,6 @@
         if (hail) blit(sprites.hail, hail.x, hailY(), Math.sin(hail.t * 0.5) * 0.02);
         if (lm) blit(sprites.lm, lm.x, H * (phone ? 0.83 : 0.88) + Math.sin(lm.t * 0.9) * 5, Math.sin(lm.t * 0.6) * 0.05);
         if (iss) blit(sprites.iss, iss.x, iss.y, Math.atan2(iss.vy, iss.v));
-        ctx.globalAlpha = 1;
     }
 
     function still() {
