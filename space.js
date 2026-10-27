@@ -70,15 +70,20 @@
  /_|/  \|_\
 `),
         hail: art(String.raw`
-              _.---------------------._
- ___  _______.'  o    o    o    o    o  '.__
-[___]=|______|                           |__>
- '-'  '------'._________________________.'
+[##]   ________________________________
+[##]==(_______|________|________|______)\
+[##]  (_______|________|________|______)=>
+[##]==(_______|________|________|______)/
+[##]
 `),
         iss: art(String.raw`
-[#]|[#]   |   [#]|[#]
-[#]|[#]==[=]==[#]|[#]
-[#]|[#]   |   [#]|[#]
+|=|=|  |=|=|     |=|=|  |=|=|
+|=|=|  |=|=|  _  |=|=|  |=|=|
+|=|=|  |=|=| [_] |=|=|  |=|=|
+======+======|#|======+======
+|=|=|  |=|=| [_] |=|=|  |=|=|
+|=|=|  |=|=|  |  |=|=|  |=|=|
+|=|=|  |=|=|     |=|=|  |=|=|
 `)
     };
 
@@ -347,7 +352,7 @@
             hail.t += dt;
             hail.x += hail.v * dt;
             for (hail.acc += dt; hail.acc > 0.05; hail.acc -= 0.05) {
-                emit(hail.x - sprites.hail.w / 2, hailY() + sprites.hail.h * 0.125, -rand(25, 45), rand(-6, 6), rand(1.2, 1.8), DRIVE);
+                emit(hail.x - sprites.hail.w / 2, hailY(), -rand(25, 45), rand(-6, 6), rand(1.2, 1.8), DRIVE);
             }
             if (hail.x > W + sprites.hail.w / 2 + 20) hail = null;
         }
@@ -425,7 +430,7 @@
         for (const r of rockets) blit(sprites[r.kind], r.x, r.y, r.h);
         if (hail) blit(sprites.hail, hail.x, hailY(), Math.sin(hail.t * 0.5) * 0.02);
         if (lm) blit(sprites.lm, lm.x, H * (phone ? 0.83 : 0.88) + Math.sin(lm.t * 0.9) * 5, Math.sin(lm.t * 0.6) * 0.05);
-        if (iss) blit(sprites.iss, iss.x, H * (phone ? 0.2 : 0.11) + iss.t * 2, 0.04);
+        if (iss) blit(sprites.iss, iss.x, H * (phone ? 0.2 : 0.075) + iss.t * 2, 0.04);
         ctx.globalAlpha = 1;
     }
 
