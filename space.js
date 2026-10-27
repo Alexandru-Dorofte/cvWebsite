@@ -288,16 +288,24 @@
         giant.img = s;
     }
 
-    // two-armed spiral galaxy, seen at an angle, slowly turning
+    // spiral galaxy: bright core, two arms with dust lanes and star knots, faint halo
     function buildGalaxy() {
-        const pts = [], n = phone ? 50 : 80;
+        const pts = [], R = galaxy.r, n = phone ? 80 : 140;
+        const add = (r, a, k, ch, col) => pts.push({ r, a, k, ch, col });
         for (let arm = 0; arm < 2; arm++) {
             for (let i = 0; i < n; i++) {
-                const f = i / n;
-                pts.push({ r: galaxy.r * (0.12 + f * 0.88), a: arm * Math.PI + f * 3.6 + rand(-0.25, 0.25) * (0.3 + f), k: 1 - f * 0.75 });
+                const f = i / n, a = arm * Math.PI + f * 3.8, spread = 0.3 + f;
+                const k = 1 - f * 0.75, r = R * (0.12 + f * 0.88) * rand(0.94, 1.06);
+                add(r, a + rand(-0.25, 0.25) * spread, k, k > 0.92 ? "*" : k > 0.52 ? "+" : k > 0.38 ? "·" : ".", k > 0.7 ? WHITE : GREY);
+                if (i % 3 === 0) add(r * 0.93, a - 0.22, 0.35, ".", DARK);
+                if (i % 17 === 8) add(r, a, 0.85, "o", WHITE);
             }
         }
-        for (let i = 0; i < 6; i++) pts.push({ r: galaxy.r * rand(0, 0.08), a: rand(0, 6.28), k: 1 });
+        for (let i = 0; i < 24; i++) {
+            const r = R * Math.pow(Math.random(), 1.5) * 0.16;
+            add(r, rand(0, 6.28), 1 - r / (R * 0.2), r < R * 0.05 ? "@" : r < R * 0.1 ? "%" : "*", WHITE);
+        }
+        for (let i = 0; i < (phone ? 25 : 45); i++) add(R * rand(0.2, 1.15), rand(0, 6.28), 0.15, "·", DARK);
         galaxy.pts = pts;
     }
 
@@ -306,11 +314,9 @@
         let col = "";
         for (const p of galaxy.pts) {
             const a = p.a + t * 0.12, x = Math.cos(a) * p.r, y = Math.sin(a) * p.r * 0.5;
-            const next = p.k > 0.7 ? WHITE : GREY;
-            if (next !== col) ctx.fillStyle = col = next;
+            if (p.col !== col) ctx.fillStyle = col = p.col;
             ctx.globalAlpha = 0.2 + 0.7 * p.k * (0.8 + 0.2 * Math.sin(t * 2 + p.a * 5));
-            ctx.fillText(p.k > 0.92 ? "*" : p.k > 0.52 ? "+" : p.k > 0.38 ? "·" : ".",
-                galaxy.x + x * ct - y * st + ox, galaxy.y + x * st + y * ct + oy);
+            ctx.fillText(p.ch, galaxy.x + x * ct - y * st + ox, galaxy.y + x * st + y * ct + oy);
         }
     }
 
