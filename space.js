@@ -13,9 +13,9 @@
     const RAMP = " .:-=+*#%@";
     // muted accent colours, kept soft so the scene stays mostly black, grey and white
     const C = {
-        ocean: "#4f7fb8", land: "#86a872", desert: "#c4aa7c", cloud: "#cfd8e2", halo: "#7fa7d8",
+        ocean: "#3a86e8", land: "#5cc25a", desert: "#dcb466", cloud: "#e6eef6", halo: "#6fb2ff",
         violet: "#a487d6", lilac: "#d8ccf0", rose: "#e2a6d2", dusk: "#6b5a8c", core: "#f4ead8",
-        hot: "#ffe2b0", amber: "#f0a258", ember: "#a8613a",
+        hot: "#ffc27a", amber: "#e8582c", ember: "#8e2618",
         sand: "#d6bd8a", tan: "#a88b5e", ringA: "#cdb98e", ringB: "#8c7853",
         magma: "#ff9147", rock: "#7d6e64"
     };
@@ -211,7 +211,7 @@
 
     // rotating planets: each surface returns [colour, brightness factor, glow, char] for a point
     // (shared arrays, so nothing is allocated per cell per frame)
-    const ICE = [WHITE, 1.1], CLOUD = [C.cloud, 0.8, false, "~"], LAND = [C.land, 1], DESERT = [C.desert, 1], SEA = [C.ocean, 0.7, false, "-"];
+    const ICE = [WHITE, 1.1], CLOUD = [C.cloud, 0.8, false, "~"], LAND = [C.land, 1], DESERT = [C.desert, 1], SEA = [C.ocean, 0.85, false, "-"];
     const MAGMA = [C.magma, 1, true], ROCK = [C.rock, 0.75], ASH = [DARK, 0.8];
     const SURFACE = {
         earth(lat, lon) {
@@ -367,7 +367,7 @@
                 lens.push({ x: Math.cos(a) * R, y: Math.sin(a) * R * 0.95, a, ch, k: base * (Math.sin(a) < 0 ? 1 : 0.55) });
             }
         }
-        Object.assign(hole, { disk, lens, glow: glow(r * 3.2, "240,162,88", 0.16) });
+        Object.assign(hole, { disk, lens, glow: glow(r * 3.2, "214,64,36", 0.22) });
     }
 
     function drawDisk(x0, y0, front) {
