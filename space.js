@@ -9,12 +9,10 @@
     const ctx = canvas.getContext("2d");
 
     const FONT = 'Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace';
-    const BG = "#070709", SHIP = "#f2f2f2", DETAIL = "#9a9a9a";
-    const OCEAN = "#3d8bff", LAND = "#4fc06b", CLOUD = "#ffffff";
-    const ADRIAN = "#8cc8d7", GIANT_A = "#e0c48a", GIANT_B = "#a89470";
-    const SUN = "#ffbf5a", ASTRO = "#ff4d3d";
+    const BG = "#070709", WHITE = "#f2f2f2", GREY = "#9a9a9a", DARK = "#5a5a5a";
     const RAMP = " .:-=+*#%@";
-    const SMOKE_CHARS = "@#*+=:.";
+    const SMOKE_CHARS = "+:··.";
+    const LIGHT = [0.55, 0.35, 0.76];
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -35,50 +33,20 @@
         }
         return out;
     }
-    const ROCKET_SMOKE = shades("#f2f2f2", "#5a5a5a", 16);
-    const DRIVE_SMOKE = shades("#9a9a9a", "#5a5a5a", 16);
+    const SMOKE = shades(WHITE, DARK, 16);
 
-    const ART = {
-        nasa: art(String.raw`
-    /\
-   /  \
-  | N  |
-  | A  |
-  | S  |
-  | A  |
- /|    |\
-/_|____|_\
-   /||\
-`),
-        small: art(String.raw`
-  ^
- /_\
- |o|
- |o|
-/|_|\
-`),
-        hail: art(String.raw`
-               _.---------------------._
- ___  _______.'  N A S A   HAIL  MARY   '.__
-[___]=|______|   o    o    o    o    o    |__>
- '-'  '------'._________________________.'
-`),
-        rocky: art(String.raw`
-     .-"""-.
-    /  ...  \
-    \_______/
-   / /  |  \ \
-  / /   |   \ \
-`)
-    };
-    const SPEECH = ["♪ amaze, amaze, amaze! ♫", "fist my bump", "you sleep, I watch", "good good good"];
+    const ROCKET = art(String.raw`
+ /\
+ ||
+/||\
+`);
 
     let W = 0, H = 0, dpr = 1, phone = false, fs = 13, cw = 8, lh = 15;
-    let sprites = {}, stars = [], sunCells = [], earthCells = [], astro = [];
-    let tau, adrian, earth, giant;
+    let rocketSprite, stars = [], earthCells = [];
+    let moon, earth, giant;
     let t = 0, mx = 0, my = 0, sx = 0, sy = 0;
     const particles = [], rockets = [], shooters = [];
-    let nextRocket = 2, nextShooter = 3, nextFlyby = 2, turn = 0, hail = null, rocky = null;
+    let nextRocket = 2, nextShooter = 3;
 
     function offscreen(w, h) {
         const c = document.createElement("canvas");
@@ -95,12 +63,10 @@
     function sprite(lines) {
         const cols = Math.max(...lines.map(l => l.length));
         const s = offscreen(cols * cw, lines.length * lh);
+        s.g.fillStyle = WHITE;
         lines.forEach((line, r) => {
             for (let i = 0; i < line.length; i++) {
-                const ch = line[i];
-                if (ch === " ") continue;
-                s.g.fillStyle = /[A-Za-z]/.test(ch) ? DETAIL : SHIP;
-                s.g.fillText(ch, i * cw + cw / 2, r * lh + lh / 2);
+                if (line[i] !== " ") s.g.fillText(line[i], i * cw + cw / 2, r * lh + lh / 2);
             }
         });
         return s;
@@ -119,29 +85,24 @@
         return out;
     }
 
-    function lightFrom(px, py) {
-        const dx = tau.x - px, dy = tau.y - py, d = Math.hypot(dx, dy);
-        const L = [dx / d * 0.8, dy / d * 0.8, 0.6];
-        const n = Math.hypot(...L);
-        return L.map(v => v / n);
-    }
+    const lit = p => Math.max(0, p.nx * LIGHT[0] + p.ny * LIGHT[1] + p.nz * LIGHT[2]);
 
-    function bakeAdrian() {
-        const r = adrian.r, s = offscreen(r * 2 + cw * 2, r * 2 + lh * 2), L = lightFrom(adrian.x, adrian.y);
-        s.g.fillStyle = ADRIAN;
+    function bakeMoon() {
+        const r = moon.r, s = offscreen(r * 2 + cw * 2, r * 2 + lh * 2);
+        s.g.fillStyle = GREY;
         for (const p of sphereCells(r)) {
-            const b = Math.max(0, p.nx * L[0] + p.ny * L[1] + p.nz * L[2]);
-            s.g.globalAlpha = 0.3 + 0.7 * b;
+            const b = lit(p);
+            s.g.globalAlpha = 0.25 + 0.6 * b;
             s.g.fillText(RAMP[Math.max(1, Math.round(b * 9))], s.w / 2 + p.x, s.h / 2 + p.y);
         }
-        adrian.img = s;
+        moon.img = s;
     }
 
     function bakeGiant() {
-        const r = giant.r, s = offscreen(r * 4.6, r * 4.6), L = lightFrom(giant.x, giant.y);
+        const r = giant.r, s = offscreen(r * 4.6, r * 4.6);
         const tilt = -0.35, ct = Math.cos(tilt), st = Math.sin(tilt);
         const back = [], front = [];
-        [[1.55, ":", GIANT_B], [1.95, "-", GIANT_A]].forEach(([k, ch, col]) => {
+        [[1.55, ":", DARK], [1.95, "-", GREY]].forEach(([k, ch, col]) => {
             const rx = r * k, ry = rx * 0.28, n = Math.round(2 * Math.PI * rx / (cw * 0.9));
             for (let i = 0; i < n; i++) {
                 const a = i / n * Math.PI * 2, ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
@@ -150,16 +111,16 @@
             }
         });
         const ring = p => { s.g.fillStyle = p.col; s.g.fillText(p.ch, s.w / 2 + p.x, s.h / 2 + p.y); };
-        s.g.globalAlpha = 0.75;
+        s.g.globalAlpha = 0.6;
         back.filter(p => p.x * p.x + p.y * p.y > r * r).forEach(ring);
         for (const p of sphereCells(r)) {
             if (front.some(f => Math.abs(f.x - p.x) < cw * 0.7 && Math.abs(f.y - p.y) < lh * 0.6)) continue;
-            const b = Math.max(0, p.nx * L[0] + p.ny * L[1] + p.nz * L[2]);
-            s.g.fillStyle = Math.sin(p.ny * 9 + Math.sin(p.ny * 3) * 1.5) > 0 ? GIANT_A : GIANT_B;
+            const b = lit(p);
+            s.g.fillStyle = Math.sin(p.ny * 9 + Math.sin(p.ny * 3) * 1.5) > 0 ? GREY : DARK;
             s.g.globalAlpha = 0.3 + 0.7 * b;
             s.g.fillText(RAMP[Math.max(1, Math.round(b * 9))], s.w / 2 + p.x, s.h / 2 + p.y);
         }
-        s.g.globalAlpha = 0.9;
+        s.g.globalAlpha = 0.75;
         front.forEach(ring);
         giant.img = s;
     }
@@ -179,7 +140,7 @@
         cw = ctx.measureText("M").width;
         lh = Math.round(fs * 1.15);
 
-        for (const k in ART) sprites[k] = sprite(ART[k]);
+        rocketSprite = sprite(ROCKET);
 
         stars = [];
         const count = Math.round(W * H / (phone ? 5000 : 4500));
@@ -194,67 +155,37 @@
 
         const m = Math.min(W, H);
         if (phone) {
-            tau = { x: W + m * 0.03, y: H + m * 0.03, r: m * 0.3 };
-            adrian = { x: W * 0.86, y: H * 0.09, r: m * 0.07 };
+            moon = { x: W * 0.86, y: H * 0.09, r: m * 0.07 };
             earth = { x: W * 0.13, y: H * 0.08, r: m * 0.09 };
             giant = { x: W * 0.15, y: H * 0.92, r: m * 0.055 };
         } else {
-            tau = { x: W + m * 0.03, y: H + m * 0.03, r: m * 0.27 };
-            adrian = { x: W * 0.86, y: H * 0.22, r: m * 0.06 };
+            moon = { x: W * 0.86, y: H * 0.22, r: m * 0.06 };
             earth = { x: W * 0.13, y: H * 0.24, r: m * 0.09 };
             giant = { x: W * 0.15, y: H * 0.78, r: m * 0.065 };
         }
 
-        sunCells = [];
-        const reach = tau.r * 1.45;
-        for (let y = H - Math.floor((H - tau.y + reach) / lh) * lh; y < H + lh; y += lh) {
-            for (let x = W - Math.floor((W - tau.x + reach) / cw) * cw; x < W + cw; x += cw) {
-                const d = Math.hypot(x - tau.x, y - tau.y) / tau.r;
-                if (d <= 1.45) sunCells.push({ x, y, d, a: Math.atan2(y - tau.y, x - tau.x) });
-            }
-        }
-
         earthCells = sphereCells(earth.r).map(p => ({
-            x: p.x, y: p.y, lat: Math.asin(-p.ny), lon: Math.atan2(p.nx, p.nz),
-            light: Math.max(0, p.nx * 0.55 + p.ny * 0.35 + p.nz * 0.76)
+            x: p.x, y: p.y, lat: Math.asin(-p.ny), lon: Math.atan2(p.nx, p.nz), light: lit(p)
         }));
 
-        bakeAdrian();
+        bakeMoon();
         bakeGiant();
-
-        astro = [];
-        for (let i = 0, n = phone ? 26 : 46; i < n; i++) {
-            astro.push({ u: Math.random(), v: rand(0.04, 0.08), p: rand(0, 6.28), ch: Math.random() < 0.6 ? "·" : "." });
-        }
 
         if (reduced) still();
     }
 
-    function emit(x, y, vx, vy, life, tbl) {
-        if (particles.length > 500) return;
-        particles.push({ x, y, vx, vy, age: 0, life, tbl });
+    function emit(x, y, vx, vy, life) {
+        if (particles.length > 300) return;
+        particles.push({ x, y, vx, vy, age: 0, life });
     }
 
     function launch() {
-        const small = Math.random() < 0.5, s = sprites[small ? "small" : "nasa"];
         rockets.push({
-            small, x: rand(W * 0.08, W * 0.92), y: H + s.h,
+            x: rand(W * 0.08, W * 0.92), y: H + rocketSprite.h,
             h: rand(-0.35, 0.35), turn: rand(-0.12, 0.12),
-            v: rand(60, 110) * (phone ? 0.7 : 1), acc: 0
+            v: rand(70, 120) * (phone ? 0.7 : 1), acc: 0
         });
     }
-
-    function startFlyby() {
-        if (turn++ % 2 === 0) {
-            const w = sprites.hail.w;
-            hail = { x: -w / 2, v: (W + w) / rand(22, 26), acc: 0, t: 0 };
-        } else {
-            const r = rockyRadius();
-            rocky = { x: W + r + cw * 4, v: (W + r * 2 + cw * 8) / rand(22, 26), t: 0 };
-        }
-    }
-
-    function rockyRadius() { return Math.max(sprites.rocky.w, sprites.rocky.h) / 2 + cw * 1.5; }
 
     function update(dt) {
         t += dt;
@@ -290,37 +221,17 @@
             launch();
         }
         for (let i = rockets.length - 1; i >= 0; i--) {
-            const r = rockets[i], s = sprites[r.small ? "small" : "nasa"];
+            const r = rockets[i], h = rocketSprite.h;
             r.h += r.turn * dt;
             const dx = Math.sin(r.h), dy = -Math.cos(r.h);
             r.x += dx * r.v * dt;
             r.y += dy * r.v * dt;
-            for (r.acc += dt; r.acc > 0.03; r.acc -= 0.03) {
-                const sp = rand(30, 70), side = rand(-15, 15);
-                emit(r.x - dx * s.h / 2, r.y - dy * s.h / 2, -dx * sp - dy * side, -dy * sp + dx * side, rand(1.2, 2.2), ROCKET_SMOKE);
+            for (r.acc += dt; r.acc > 0.04; r.acc -= 0.04) {
+                const sp = rand(20, 45), side = rand(-6, 6);
+                emit(r.x - dx * h / 2, r.y - dy * h / 2, -dx * sp - dy * side, -dy * sp + dx * side, rand(0.8, 1.4));
             }
-            if (r.y < -s.h * 1.5 || r.x < -200 || r.x > W + 200) rockets.splice(i, 1);
+            if (r.y < -h * 1.5 || r.x < -200 || r.x > W + 200) rockets.splice(i, 1);
         }
-
-        if ((nextFlyby -= dt) <= 0) {
-            nextFlyby = rand(12, 15);
-            startFlyby();
-        }
-        if (hail) {
-            hail.t += dt;
-            hail.x += hail.v * dt;
-            for (hail.acc += dt; hail.acc > 0.05; hail.acc -= 0.05) {
-                emit(hail.x - sprites.hail.w / 2, hailY() + lh * 0.5, -rand(25, 45), rand(-6, 6), rand(1.2, 1.8), DRIVE_SMOKE);
-            }
-            if (hail.x > W + sprites.hail.w / 2 + cw * 2) hail = null;
-        }
-        if (rocky) {
-            rocky.t += dt;
-            rocky.x -= rocky.v * dt;
-            if (rocky.x < -rockyRadius() - cw * 14) rocky = null;
-        }
-
-        for (const a of astro) a.u = (a.u + a.v * dt) % 1;
 
         for (let i = particles.length - 1; i >= 0; i--) {
             const p = particles[i];
@@ -337,8 +248,6 @@
         }
     }
 
-    function hailY() { return H * (phone ? 0.17 : 0.1) + (hail ? Math.sin(hail.t * 0.8) * 3 : 0); }
-
     function blit(s, x, y, a) {
         const c = Math.cos(a) * dpr, n = Math.sin(a) * dpr;
         ctx.setTransform(c, n, -n, c, x * dpr, y * dpr);
@@ -353,12 +262,12 @@
 
         const par = [4, 9, 16], bright = [0.45, 0.6, 0.9];
         for (const s of stars) {
-            ctx.fillStyle = s.layer === 2 ? SHIP : DETAIL;
+            ctx.fillStyle = s.layer === 2 ? WHITE : GREY;
             ctx.globalAlpha = bright[s.layer] * (0.6 + 0.4 * Math.sin(t * s.speed + s.phase));
             ctx.fillText(s.ch, s.x + sx * par[s.layer], s.y + sy * par[s.layer]);
         }
 
-        ctx.fillStyle = SHIP;
+        ctx.fillStyle = WHITE;
         for (const s of shooters) {
             const fade = Math.min(1, s.life * 2);
             s.pts.forEach((p, i) => {
@@ -368,27 +277,9 @@
         }
 
         const ox = sx * 6, oy = sy * 6;
-
-        ctx.fillStyle = SUN;
-        for (const c of sunCells) {
-            let b, idx;
-            if (c.d < 1) {
-                const noise = Math.sin(c.x * 0.13 + t * 1.7) * Math.sin(c.y * 0.17 - t * 1.3);
-                b = Math.pow(1 - c.d * c.d, 0.4) * (0.78 + 0.22 * noise);
-                idx = Math.max(1, Math.round(b * 9));
-            } else {
-                const flick = 0.5 + 0.5 * Math.sin(c.a * 7 + t * 2.3) * Math.sin(c.a * 3 - t * 1.1);
-                b = (1 - (c.d - 1) / 0.45) * flick * 0.45;
-                idx = Math.round(b * 7);
-                if (idx < 1) continue;
-            }
-            ctx.globalAlpha = 0.3 + 0.7 * b;
-            ctx.fillText(RAMP[idx], c.x + ox, c.y + oy);
-        }
-
         ctx.globalAlpha = 1;
         ctx.drawImage(giant.img.c, giant.x + ox - giant.img.w / 2, giant.y + oy - giant.img.h / 2, giant.img.w, giant.img.h);
-        ctx.drawImage(adrian.img.c, adrian.x + ox - adrian.img.w / 2, adrian.y + oy - adrian.img.h / 2, adrian.img.w, adrian.img.h);
+        ctx.drawImage(moon.img.c, moon.x + ox - moon.img.w / 2, moon.y + oy - moon.img.h / 2, moon.img.w, moon.img.h);
 
         let col = "";
         for (const c of earthCells) {
@@ -397,63 +288,27 @@
                 Math.sin(5 * lon - c.lat * 4) * 0.2 + Math.cos(c.lat * 2.5) * 0.3 - 0.35;
             const cl = lon + t * 0.08;
             const cloud = Math.sin(4 * cl + c.lat * 5) * Math.sin(3 * c.lat + cl) > 0.45;
-            const next = cloud ? CLOUD : land > 0 ? LAND : OCEAN;
+            const next = cloud ? WHITE : land > 0 ? GREY : DARK;
             if (next !== col) ctx.fillStyle = col = next;
             const b = 0.15 + 0.85 * c.light;
             ctx.globalAlpha = 0.35 + 0.65 * b;
             ctx.fillText(RAMP[Math.max(1, Math.round(b * 9))], earth.x + c.x + ox, earth.y + c.y + oy);
         }
 
-        const ax = tau.x - adrian.x, ay = tau.y - adrian.y, ad = Math.hypot(ax, ay), ux = ax / ad, uy = ay / ad;
-        const p0x = tau.x - ux * tau.r, p0y = tau.y - uy * tau.r;
-        const p2x = adrian.x + ux * adrian.r * 1.1, p2y = adrian.y + uy * adrian.r * 1.1;
-        const len = Math.hypot(p2x - p0x, p2y - p0y), nx = uy, ny = -ux;
-        const bow = nx * (W / 2 - p0x) + ny * (H / 2 - p0y) > 0 ? 0.12 : -0.12;
-        const p1x = (p0x + p2x) / 2 + nx * len * bow, p1y = (p0y + p2y) / 2 + ny * len * bow;
-        ctx.fillStyle = ASTRO;
-        for (const a of astro) {
-            const u = a.u, v = 1 - u, j = Math.sin(t * 3 + a.p) * 3;
-            ctx.globalAlpha = 0.9 * Math.pow(Math.sin(u * Math.PI), 0.7);
-            ctx.fillText(a.ch, v * v * p0x + 2 * v * u * p1x + u * u * p2x + nx * j + ox, v * v * p0y + 2 * v * u * p1y + u * u * p2y + ny * j + oy);
-        }
-
-        ctx.font = Math.round(fs * 0.8) + "px " + FONT;
-        ctx.fillStyle = DETAIL;
-        ctx.globalAlpha = 0.45;
-        ctx.fillText("TAU CETI", tau.x - tau.r * 0.85 + ox, tau.y - tau.r * 0.95 + oy);
-        ctx.fillText("ADRIAN", adrian.x + ox, adrian.y + adrian.r + lh + oy);
-        ctx.font = fs + "px " + FONT;
-
         for (const p of particles) {
             const f = p.age / p.life;
-            ctx.fillStyle = p.tbl[Math.floor(f * (p.tbl.length - 1))];
-            ctx.globalAlpha = 1 - f;
-            ctx.fillText(SMOKE_CHARS[Math.floor(f * 7)], p.x, p.y);
+            ctx.fillStyle = SMOKE[Math.floor(f * (SMOKE.length - 1))];
+            ctx.globalAlpha = 0.8 * (1 - f);
+            ctx.fillText(SMOKE_CHARS[Math.floor(f * SMOKE_CHARS.length)], p.x, p.y);
         }
 
         ctx.globalAlpha = 1;
-        for (const r of rockets) blit(sprites[r.small ? "small" : "nasa"], r.x, r.y, r.h);
-        if (hail) blit(sprites.hail, hail.x, hailY(), Math.sin(hail.t * 0.5) * 0.02);
-
-        if (rocky) {
-            const ry = H * (phone ? 0.86 : 0.88) + Math.sin(rocky.t * 1.3) * 4, rr = rockyRadius();
-            blit(sprites.rocky, rocky.x, ry, Math.sin(rocky.t * 0.9) * 0.08);
-            ctx.fillStyle = DETAIL;
-            const n = Math.round(2 * Math.PI * rr / (cw * 1.1));
-            for (let i = 0; i < n; i++) {
-                const a = i / n * Math.PI * 2;
-                ctx.globalAlpha = 0.35 + 0.3 * Math.sin(t * 3 + a * 3);
-                ctx.fillText("·", rocky.x + Math.cos(a) * rr, ry + Math.sin(a) * rr);
-            }
-            ctx.globalAlpha = Math.sin((rocky.t % 4) / 4 * Math.PI);
-            ctx.fillText(SPEECH[Math.floor(rocky.t / 4) % SPEECH.length], rocky.x, ry - rr - lh);
-        }
+        for (const r of rockets) blit(rocketSprite, r.x, r.y, r.h);
         ctx.globalAlpha = 1;
     }
 
     function still() {
         t = 12;
-        hail = { x: W / 2, v: 0, acc: 0, t: 0 };
         draw();
     }
 
