@@ -74,6 +74,11 @@
  ___  _______.'  o    o    o    o    o  '.__
 [___]=|______|                           |__>
  '-'  '------'._________________________.'
+`),
+        iss: art(String.raw`
+[#]|[#]   |   [#]|[#]
+[#]|[#]==[=]==[#]|[#]
+[#]|[#]   |   [#]|[#]
 `)
     };
 
@@ -82,7 +87,7 @@
     let moon, earth, giant, rocky;
     let t = 0, mx = 0, my = 0, sx = 0, sy = 0;
     const particles = [], rockets = [], shooters = [];
-    let nextRocket = 2, nextShooter = 3, nextFlyby = 3, turn = 0, hail = null, lm = null;
+    let nextRocket = 2, nextShooter = 3, nextFlyby = 3, turn = 0, hail = null, lm = null, iss = null;
 
     function offscreen(w, h, size) {
         const c = document.createElement("canvas");
@@ -165,12 +170,22 @@
         }
     }
 
-    function drawMoonlet(ox, oy, front) {
-        const a = t * 0.5, z = Math.sin(a);
+    // a small moon on a tilted orbit, drawn behind or in front of its planet
+    function drawMoonlet(b, speed, reach, ox, oy, front) {
+        const a = t * speed, z = Math.sin(a);
         if ((z > 0) !== front) return;
         ctx.fillStyle = GREY;
         ctx.globalAlpha = front ? 0.9 : 0.45;
-        ctx.fillText(front ? "@" : "o", rocky.x + Math.cos(a) * rocky.r * 1.8 + ox, rocky.y + z * rocky.r * 0.45 - Math.cos(a) * rocky.r * 0.3 + oy);
+        ctx.fillText(front ? "@" : "o", b.x + Math.cos(a) * b.r * reach + ox, b.y + z * b.r * 0.45 - Math.cos(a) * b.r * 0.3 + oy);
+    }
+
+    // ring points stay put (the baked planet leaves gaps for the front ones); a brightness wave makes them spin
+    function drawRing(pts, base, ox, oy) {
+        for (const p of pts) {
+            ctx.fillStyle = p.col;
+            ctx.globalAlpha = base * (0.45 + 0.55 * Math.max(0, Math.sin(p.a * 5 - t * 1.6)));
+            ctx.fillText(p.ch, giant.x + p.x + ox, giant.y + p.y + oy);
+        }
     }
 
     function bakeGiant() {
@@ -181,13 +196,12 @@
             const rx = r * k, ry = rx * 0.28, n = Math.round(2 * Math.PI * rx / (cw * 0.9));
             for (let i = 0; i < n; i++) {
                 const a = i / n * Math.PI * 2, ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
-                const p = { x: ex * ct - ey * st, y: ex * st + ey * ct, ch, col };
+                const p = { x: ex * ct - ey * st, y: ex * st + ey * ct, ch, col, a };
                 (ey < 0 ? back : front).push(p);
             }
         });
-        const ring = p => { s.g.fillStyle = p.col; s.g.fillText(p.ch, s.w / 2 + p.x, s.h / 2 + p.y); };
-        s.g.globalAlpha = 0.6;
-        back.filter(p => p.x * p.x + p.y * p.y > r * r).forEach(ring);
+        giant.back = back.filter(p => p.x * p.x + p.y * p.y > r * r);
+        giant.front = front;
         for (const p of sphereCells(r)) {
             if (front.some(f => Math.abs(f.x - p.x) < cw * 0.7 && Math.abs(f.y - p.y) < lh * 0.6)) continue;
             const b = lit(p);
@@ -195,8 +209,6 @@
             s.g.globalAlpha = 0.3 + 0.7 * b;
             s.g.fillText(RAMP[Math.max(1, Math.round(b * 9))], s.w / 2 + p.x, s.h / 2 + p.y);
         }
-        s.g.globalAlpha = 0.75;
-        front.forEach(ring);
         giant.img = s;
     }
 
@@ -219,7 +231,8 @@
             saturn: sprite(ART.saturn, 0.75),
             shuttle: sprite(ART.shuttle, 0.75),
             lm: sprite(ART.lm, 0.85),
-            hail: sprite(ART.hail, phone ? 0.8 : 1)
+            hail: sprite(ART.hail, phone ? 0.8 : 1),
+            iss: sprite(ART.iss, 0.8)
         };
 
         stars = [];
@@ -316,11 +329,19 @@
 
         if ((nextFlyby -= dt) <= 0) {
             nextFlyby = rand(12, 15);
-            if (turn++ % 2 === 0) {
+            const next = turn++ % 3;
+            if (next === 0) {
                 hail = { x: -sprites.hail.w / 2, v: (W + sprites.hail.w) / rand(22, 26), t: 0, acc: 0 };
-            } else {
+            } else if (next === 1) {
                 lm = { x: W + sprites.lm.w, v: (W + sprites.lm.w * 2) / rand(20, 24), t: 0 };
+            } else {
+                iss = { x: -sprites.iss.w, v: (W + sprites.iss.w * 2) / rand(11, 13), t: 0 };
             }
+        }
+        if (iss) {
+            iss.t += dt;
+            iss.x += iss.v * dt;
+            if (iss.x > W + sprites.iss.w) iss = null;
         }
         if (hail) {
             hail.t += dt;
@@ -383,10 +404,15 @@
 
         const ox = sx * 6, oy = sy * 6;
         ctx.globalAlpha = 1;
+        drawRing(giant.back, 0.6, ox, oy);
+        ctx.globalAlpha = 1;
         ctx.drawImage(giant.img.c, giant.x + ox - giant.img.w / 2, giant.y + oy - giant.img.h / 2, giant.img.w, giant.img.h);
-        drawMoonlet(ox, oy, false);
+        drawRing(giant.front, 0.8, ox, oy);
+        drawMoonlet(rocky, 0.5, 1.8, ox, oy, false);
+        drawMoonlet(earth, 0.35, phone ? 1.5 : 1.9, ox, oy, false);
         for (const b of [earth, moon, rocky]) drawBody(b, ox, oy);
-        drawMoonlet(ox, oy, true);
+        drawMoonlet(rocky, 0.5, 1.8, ox, oy, true);
+        drawMoonlet(earth, 0.35, phone ? 1.5 : 1.9, ox, oy, true);
 
         for (const p of particles) {
             const f = p.age / p.life;
@@ -399,6 +425,7 @@
         for (const r of rockets) blit(sprites[r.kind], r.x, r.y, r.h);
         if (hail) blit(sprites.hail, hail.x, hailY(), Math.sin(hail.t * 0.5) * 0.02);
         if (lm) blit(sprites.lm, lm.x, H * (phone ? 0.83 : 0.88) + Math.sin(lm.t * 0.9) * 5, Math.sin(lm.t * 0.6) * 0.05);
+        if (iss) blit(sprites.iss, iss.x, H * (phone ? 0.2 : 0.11) + iss.t * 2, 0.04);
         ctx.globalAlpha = 1;
     }
 
