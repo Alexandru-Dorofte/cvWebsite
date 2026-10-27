@@ -89,7 +89,7 @@
 
     let W = 0, H = 0, dpr = 1, phone = false, fs = 13, cw = 8, lh = 15;
     let sprites = {}, stars = [];
-    let storm, earth, giant, lava, hole;
+    let galaxy, earth, giant, lava, hole;
     let t = 0, mx = 0, my = 0, sx = 0, sy = 0;
     const particles = [], rockets = [], shooters = [];
     let nextRocket = 2, nextShooter = 3, nextFlyby = 3, turn = 0, hail = null, lm = null, iss = null;
@@ -147,13 +147,6 @@
             const cl = lon + t * 0.08;
             if (Math.sin(4 * cl + lat * 5) * Math.sin(3 * lat + cl) > 0.45) return [WHITE, 1];
             return land > 0 ? [GREY, 1] : [DARK, 1];
-        },
-        storm(lat, lon) {
-            const flow = lon + t * 0.12 * Math.sin(lat * 4);
-            const dl = ((flow - 1 + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
-            const ex = dl / 0.5, ey = (lat - 0.35) / 0.22, d = Math.hypot(ex, ey);
-            if (d < 1) return Math.sin(d * 9 + Math.atan2(ey, ex) * 2 - t * 2.5) > 0 ? [WHITE, 1.1] : [DARK, 0.8];
-            return Math.sin(lat * 9 + Math.sin(flow * 3) * 0.4) > 0 ? [GREY, 1] : [DARK, 0.9];
         },
         lava(lat, lon) {
             const crack = Math.abs(Math.sin(lon * 4 + Math.sin(lat * 5) * 1.5)) * Math.abs(Math.sin(lat * 6 + Math.cos(lon * 3)));
@@ -223,6 +216,30 @@
             s.g.fillText(RAMP[Math.max(1, Math.round(b * 9))], s.w / 2 + p.x, s.h / 2 + p.y);
         }
         giant.img = s;
+    }
+
+    // two-armed spiral galaxy, seen at an angle, slowly turning
+    function buildGalaxy() {
+        const pts = [], n = phone ? 50 : 80;
+        for (let arm = 0; arm < 2; arm++) {
+            for (let i = 0; i < n; i++) {
+                const f = i / n;
+                pts.push({ r: galaxy.r * (0.12 + f * 0.88), a: arm * Math.PI + f * 3.6 + rand(-0.25, 0.25) * (0.3 + f), k: 1 - f * 0.75 });
+            }
+        }
+        for (let i = 0; i < 6; i++) pts.push({ r: galaxy.r * rand(0, 0.08), a: rand(0, 6.28), k: 1 });
+        galaxy.pts = pts;
+    }
+
+    function drawGalaxy(ox, oy) {
+        const tilt = -0.45, ct = Math.cos(tilt), st = Math.sin(tilt);
+        for (const p of galaxy.pts) {
+            const a = p.a + t * 0.12, x = Math.cos(a) * p.r, y = Math.sin(a) * p.r * 0.5;
+            ctx.fillStyle = p.k > 0.7 ? WHITE : GREY;
+            ctx.globalAlpha = 0.2 + 0.7 * p.k * (0.8 + 0.2 * Math.sin(t * 2 + p.a * 5));
+            ctx.fillText(p.k > 0.92 ? "*" : p.k > 0.72 ? "+" : p.k > 0.52 ? "+" : p.k > 0.38 ? "·" : ".",
+                galaxy.x + x * ct - y * st + ox, galaxy.y + x * st + y * ct + oy);
+        }
     }
 
     // black hole: a flattened accretion disk plus the far side of it lensed over and under the shadow
@@ -306,13 +323,13 @@
 
         const m = Math.min(W, H);
         if (phone) {
-            storm = { x: W * 0.86, y: H * 0.09, r: m * 0.075 };
+            galaxy = { x: W * 0.84, y: H * 0.09, r: m * 0.12 };
             earth = { x: W * 0.13, y: H * 0.08, r: m * 0.09 };
             giant = { x: W * 0.15, y: H * 0.92, r: m * 0.055 };
             hole = { x: W * 0.82, y: H * 0.92, r: m * 0.03 };
             lava = null;
         } else {
-            storm = { x: W * 0.86, y: H * 0.22, r: m * 0.08 };
+            galaxy = { x: W * 0.86, y: H * 0.22, r: m * 0.12 };
             earth = { x: W * 0.13, y: H * 0.24, r: m * 0.09 };
             giant = { x: W * 0.15, y: H * 0.78, r: m * 0.065 };
             hole = { x: W * 0.86, y: H * 0.78, r: m * 0.035 };
@@ -320,7 +337,7 @@
         }
 
         Object.assign(earth, { kind: "earth", spin: 0.25, cells: surfaceCells(earth.r) });
-        Object.assign(storm, { kind: "storm", spin: 0.2, cells: surfaceCells(storm.r) });
+        buildGalaxy();
         if (lava) Object.assign(lava, { kind: "lava", spin: 0.08, cells: surfaceCells(lava.r) });
         bakeGiant();
         buildHole();
@@ -469,11 +486,10 @@
         ctx.globalAlpha = 1;
         ctx.drawImage(giant.img.c, giant.x + ox - giant.img.w / 2, giant.y + oy - giant.img.h / 2, giant.img.w, giant.img.h);
         drawRing(giant.front, 0.8, ox, oy);
-        drawMoonlet(storm, 0.6, 1.6, ox, oy, false);
+        drawGalaxy(ox, oy);
         drawMoonlet(earth, 0.35, phone ? 1.5 : 1.9, ox, oy, false);
         drawHalo(earth, ox, oy);
-        for (const b of [earth, storm, lava]) if (b) drawBody(b, ox, oy);
-        drawMoonlet(storm, 0.6, 1.6, ox, oy, true);
+        for (const b of [earth, lava]) if (b) drawBody(b, ox, oy);
         drawMoonlet(earth, 0.35, phone ? 1.5 : 1.9, ox, oy, true);
         drawBlackHole(ox, oy);
 
