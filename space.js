@@ -61,6 +61,45 @@
 /__|____|__\
    '----'
 `),
+        falcon: art(String.raw`
+  /\
+  ||
+  ||
+ =||=
+  ||
+  ||
+  ||
+  ||
+  ||
+ /||\
+ ^^^^
+`),
+        starship: art(String.raw`
+   /\
+  /  \
+ <|  |>
+  |  |
+  |  |
+  |==|
+  |  |
+  |  |
+  |  |
+ <|  |>
+  |__|
+  ^^^^
+`),
+        soyuz: art(String.raw`
+    ^
+   / \
+   | |
+   |=|
+   | |
+  /| |\
+ / | | \
+|  | |  |
+|__|_|__|
+ ^^ ^ ^^
+`),
         lm: art(String.raw`
     .--.
   _/____\_
@@ -92,7 +131,7 @@
     let galaxy, earth, giant, lava, hole;
     let t = 0, mx = 0, my = 0, sx = 0, sy = 0;
     const particles = [], rockets = [], shooters = [];
-    let nextRocket = 2, nextShooter = 3, nextFlyby = 3, turn = 0, hail = null, lm = null, iss = null;
+    let lastRocket = "", nextRocket = 2, nextShooter = 3, nextFlyby = 3, turn = 0, hail = null, lm = null, iss = null;
 
     function offscreen(w, h, size) {
         const c = document.createElement("canvas");
@@ -305,6 +344,9 @@
         sprites = {
             saturn: sprite(ART.saturn, 0.75),
             shuttle: sprite(ART.shuttle, 0.75),
+            falcon: sprite(ART.falcon, 0.75),
+            starship: sprite(ART.starship, 0.75),
+            soyuz: sprite(ART.soyuz, 0.75),
             lm: sprite(ART.lm, 0.85),
             hail: sprite(ART.hail, phone ? 0.8 : 1),
             iss: sprite(ART.iss, 0.8)
@@ -329,11 +371,11 @@
             hole = { x: W * 0.82, y: H * 0.92, r: m * 0.03 };
             lava = null;
         } else {
-            galaxy = { x: W * 0.15, y: H * 0.78, r: m * 0.12 };
+            galaxy = { x: W * 0.1, y: H * 0.5, r: m * 0.12 };
             earth = { x: W * 0.13, y: H * 0.24, r: m * 0.09 };
             giant = { x: W * 0.86, y: H * 0.22, r: m * 0.065 };
             hole = { x: W * 0.86, y: H * 0.78, r: m * 0.035 };
-            lava = { x: W * 0.07, y: H * 0.5, r: m * 0.045 };
+            lava = { x: W * 0.15, y: H * 0.78, r: m * 0.045 };
         }
 
         Object.assign(earth, { kind: "earth", spin: 0.25, cells: surfaceCells(earth.r) });
@@ -351,7 +393,8 @@
     }
 
     function launch() {
-        const kind = Math.random() < 0.5 ? "saturn" : "shuttle";
+        const kinds = ["saturn", "shuttle", "falcon", "starship", "soyuz"].filter(k => k !== lastRocket);
+        const kind = lastRocket = kinds[Math.floor(Math.random() * kinds.length)];
         rockets.push({
             kind, x: rand(W * 0.08, W * 0.92), y: H + sprites[kind].h,
             h: rand(-0.35, 0.35), turn: rand(-0.12, 0.12),
@@ -413,12 +456,13 @@
             } else if (next === 1) {
                 lm = { x: W + sprites.lm.w, v: (W + sprites.lm.w * 2) / rand(20, 24), t: 0 };
             } else {
-                iss = { x: -sprites.iss.w, v: (W + sprites.iss.w * 2) / rand(11, 13), t: 0 };
+                const d = rand(24, 28);
+                iss = { x: -sprites.iss.w, y: H * (phone ? 0.12 : 0.04), v: (W + sprites.iss.w * 2) / d, vy: H * (phone ? 0.22 : 0.3) / d };
             }
         }
         if (iss) {
-            iss.t += dt;
             iss.x += iss.v * dt;
+            iss.y += iss.vy * dt;
             if (iss.x > W + sprites.iss.w) iss = null;
         }
         if (hail) {
@@ -504,7 +548,7 @@
         for (const r of rockets) blit(sprites[r.kind], r.x, r.y, r.h);
         if (hail) blit(sprites.hail, hail.x, hailY(), Math.sin(hail.t * 0.5) * 0.02);
         if (lm) blit(sprites.lm, lm.x, H * (phone ? 0.83 : 0.88) + Math.sin(lm.t * 0.9) * 5, Math.sin(lm.t * 0.6) * 0.05);
-        if (iss) blit(sprites.iss, iss.x, H * (phone ? 0.2 : 0.075) + iss.t * 2, 0.04);
+        if (iss) blit(sprites.iss, iss.x, iss.y, Math.atan2(iss.vy, iss.v));
         ctx.globalAlpha = 1;
     }
 
