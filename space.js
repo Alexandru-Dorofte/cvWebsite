@@ -79,7 +79,7 @@
 
     let W = 0, H = 0, dpr = 1, phone = false, fs = 13, cw = 8, lh = 15;
     let sprites = {}, stars = [], earthCells = [];
-    let moon, earth, giant;
+    let moon, earth, giant, rocky;
     let t = 0, mx = 0, my = 0, sx = 0, sy = 0;
     const particles = [], rockets = [], shooters = [];
     let nextRocket = 2, nextShooter = 3, nextFlyby = 3, turn = 0, hail = null, lm = null;
@@ -125,15 +125,17 @@
 
     const lit = p => Math.max(0, p.nx * LIGHT[0] + p.ny * LIGHT[1] + p.nz * LIGHT[2]);
 
-    function bakeMoon() {
-        const r = moon.r, s = offscreen(r * 2 + cw * 2, r * 2 + lh * 2);
+    // plain shaded sphere; craters darken a few spots
+    function bakeSphere(body, craters) {
+        const r = body.r, s = offscreen(r * 2 + cw * 2, r * 2 + lh * 2);
         s.g.fillStyle = GREY;
         for (const p of sphereCells(r)) {
-            const b = lit(p);
+            let b = lit(p);
+            if (craters && Math.sin(p.nx * 9 + 1) * Math.sin(p.ny * 8 + 2) > 0.6) b *= 0.45;
             s.g.globalAlpha = 0.25 + 0.6 * b;
             s.g.fillText(RAMP[Math.max(1, Math.round(b * 9))], s.w / 2 + p.x, s.h / 2 + p.y);
         }
-        moon.img = s;
+        body.img = s;
     }
 
     function bakeGiant() {
@@ -201,17 +203,20 @@
             moon = { x: W * 0.86, y: H * 0.09, r: m * 0.07 };
             earth = { x: W * 0.13, y: H * 0.08, r: m * 0.09 };
             giant = { x: W * 0.15, y: H * 0.92, r: m * 0.055 };
+            rocky = { x: W * 0.86, y: H * 0.92, r: m * 0.06 };
         } else {
             moon = { x: W * 0.86, y: H * 0.22, r: m * 0.06 };
             earth = { x: W * 0.13, y: H * 0.24, r: m * 0.09 };
             giant = { x: W * 0.15, y: H * 0.78, r: m * 0.065 };
+            rocky = { x: W * 0.86, y: H * 0.78, r: m * 0.075 };
         }
 
         earthCells = sphereCells(earth.r).map(p => ({
             x: p.x, y: p.y, lat: Math.asin(-p.ny), lon: Math.atan2(p.nx, p.nz), light: lit(p)
         }));
 
-        bakeMoon();
+        bakeSphere(moon, false);
+        bakeSphere(rocky, true);
         bakeGiant();
 
         if (reduced) still();
@@ -347,7 +352,7 @@
         const ox = sx * 6, oy = sy * 6;
         ctx.globalAlpha = 1;
         ctx.drawImage(giant.img.c, giant.x + ox - giant.img.w / 2, giant.y + oy - giant.img.h / 2, giant.img.w, giant.img.h);
-        ctx.drawImage(moon.img.c, moon.x + ox - moon.img.w / 2, moon.y + oy - moon.img.h / 2, moon.img.w, moon.img.h);
+        for (const b of [moon, rocky]) ctx.drawImage(b.img.c, b.x + ox - b.img.w / 2, b.y + oy - b.img.h / 2, b.img.w, b.img.h);
 
         let col = "";
         for (const c of earthCells) {
