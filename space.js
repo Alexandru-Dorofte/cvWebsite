@@ -500,6 +500,29 @@
             hole = { x: W * 0.15, y: H * 0.78, r: m * 0.045 };
         }
 
+        // keep the bodies clear of the hero card (it covers more of the screen when zoomed in):
+        // take the shorter of sliding sideways or up/down out of it, and shrink only if neither fits
+        const card = document.getElementById("smaller-box"), sr = space.getBoundingClientRect();
+        if (card) {
+            const c = card.getBoundingClientRect(), gap = 6;
+            const top = c.top - sr.top, bottom = c.bottom - sr.top, left = c.left - sr.left, right = c.right - sr.left;
+            // [body, extent above, extent below, half width] in radii; earth's height includes its moon
+            for (const [b, up, down, w] of [[earth, 1.3, 1.08, 1.08], [giant, 1, 1, 2], [galaxy, 0.7, 0.7, 1.1], [hole, 1.4, 1.4, 2.7]]) {
+                const high = b.y < (top + bottom) / 2, west = b.x < (left + right) / 2;
+                if (b.x + w * b.r < left || b.x - w * b.r > right || (high ? b.y + down * b.r < top : b.y - up * b.r > bottom)) continue;
+                const nx = west ? left - gap - w * b.r : right + gap + w * b.r, ny = high ? top - gap - down * b.r : bottom + gap + up * b.r;
+                const fitX = west ? nx - w * b.r >= gap : nx + w * b.r <= W - gap, fitY = high ? ny - up * b.r >= gap : ny + down * b.r <= H - gap;
+                if (fitX && (!fitY || Math.abs(nx - b.x) < Math.abs(ny - b.y))) b.x = nx;
+                else if (fitY) b.y = ny;
+                else {
+                    const rx = ((west ? left : W - right) - gap * 2) / (w * 2), ry = ((high ? top : H - bottom) - gap * 2) / (up + down);
+                    b.r = Math.max(6, rx, ry);
+                    if (rx > ry) b.x = west ? gap + w * b.r : W - gap - w * b.r;
+                    else b.y = high ? gap + up * b.r : H - gap - down * b.r;
+                }
+            }
+        }
+
         // earth uses a smaller font on a tighter grid so the coastlines show
         const ef = 0.7;
         Object.assign(earth, { kind: "earth", spin: 0.15, ambient: 0.5, font: Math.round(fs * ef) + "px " + FONT, cells: surfaceCells(earth.r, cw * ef, lh * ef) });
