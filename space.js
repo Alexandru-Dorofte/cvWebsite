@@ -34,39 +34,77 @@
         return out;
     }
     const SMOKE = shades(WHITE, DARK, 16);
+    const DRIVE = shades(GREY, DARK, 16);
 
-    const ROCKET = art(String.raw`
- /\
- ||
-/||\
-`);
+    const ART = {
+        saturn: art(String.raw`
+   |
+   A
+  /_\
+  | |
+  |=|
+  | |
+ /___\
+ |   |
+ |===|
+ |   |
+/|___|\
+ /^^^\
+`),
+        shuttle: art(String.raw`
+     /\
+    /  \
+   |    |
+   |    |
+  /|    |\
+ / |    | \
+/__|____|__\
+   '----'
+`),
+        lm: art(String.raw`
+    .--.
+  _/____\_
+ | [====] |
+ |________|
+  /| /\ |\
+ /_|/  \|_\
+`),
+        hail: art(String.raw`
+              _.---------------------._
+ ___  _______.'  o    o    o    o    o  '.__
+[___]=|______|                           |__>
+ '-'  '------'._________________________.'
+`)
+    };
 
     let W = 0, H = 0, dpr = 1, phone = false, fs = 13, cw = 8, lh = 15;
-    let rocketSprite, stars = [], earthCells = [];
+    let sprites = {}, stars = [], earthCells = [];
     let moon, earth, giant;
     let t = 0, mx = 0, my = 0, sx = 0, sy = 0;
     const particles = [], rockets = [], shooters = [];
-    let nextRocket = 2, nextShooter = 3;
+    let nextRocket = 2, nextShooter = 3, nextFlyby = 3, turn = 0, hail = null, lm = null;
 
-    function offscreen(w, h) {
+    function offscreen(w, h, size) {
         const c = document.createElement("canvas");
         c.width = Math.ceil(w * dpr);
         c.height = Math.ceil(h * dpr);
         const g = c.getContext("2d");
         g.scale(dpr, dpr);
-        g.font = fs + "px " + FONT;
+        g.font = (size || fs) + "px " + FONT;
         g.textAlign = "center";
         g.textBaseline = "middle";
         return { c, g, w, h };
     }
 
-    function sprite(lines) {
-        const cols = Math.max(...lines.map(l => l.length));
-        const s = offscreen(cols * cw, lines.length * lh);
-        s.g.fillStyle = WHITE;
+    function sprite(lines, scale) {
+        const w = cw * scale, h = lh * scale, cols = Math.max(...lines.map(l => l.length));
+        const s = offscreen(cols * w, lines.length * h, fs * scale);
         lines.forEach((line, r) => {
             for (let i = 0; i < line.length; i++) {
-                if (line[i] !== " ") s.g.fillText(line[i], i * cw + cw / 2, r * lh + lh / 2);
+                const ch = line[i];
+                if (ch === " ") continue;
+                s.g.fillStyle = "=o[]^'".includes(ch) ? GREY : WHITE;
+                s.g.fillText(ch, i * w + w / 2, r * h + h / 2);
             }
         });
         return s;
@@ -140,7 +178,12 @@
         cw = ctx.measureText("M").width;
         lh = Math.round(fs * 1.15);
 
-        rocketSprite = sprite(ROCKET);
+        sprites = {
+            saturn: sprite(ART.saturn, 0.75),
+            shuttle: sprite(ART.shuttle, 0.75),
+            lm: sprite(ART.lm, 0.85),
+            hail: sprite(ART.hail, phone ? 0.8 : 1)
+        };
 
         stars = [];
         const count = Math.round(W * H / (phone ? 5000 : 4500));
@@ -174,14 +217,15 @@
         if (reduced) still();
     }
 
-    function emit(x, y, vx, vy, life) {
-        if (particles.length > 300) return;
-        particles.push({ x, y, vx, vy, age: 0, life });
+    function emit(x, y, vx, vy, life, tbl) {
+        if (particles.length > 400) return;
+        particles.push({ x, y, vx, vy, age: 0, life, tbl });
     }
 
     function launch() {
+        const kind = Math.random() < 0.5 ? "saturn" : "shuttle";
         rockets.push({
-            x: rand(W * 0.08, W * 0.92), y: H + rocketSprite.h,
+            kind, x: rand(W * 0.08, W * 0.92), y: H + sprites[kind].h,
             h: rand(-0.35, 0.35), turn: rand(-0.12, 0.12),
             v: rand(70, 120) * (phone ? 0.7 : 1), acc: 0
         });
@@ -221,16 +265,38 @@
             launch();
         }
         for (let i = rockets.length - 1; i >= 0; i--) {
-            const r = rockets[i], h = rocketSprite.h;
+            const r = rockets[i], h = sprites[r.kind].h;
             r.h += r.turn * dt;
             const dx = Math.sin(r.h), dy = -Math.cos(r.h);
             r.x += dx * r.v * dt;
             r.y += dy * r.v * dt;
             for (r.acc += dt; r.acc > 0.04; r.acc -= 0.04) {
                 const sp = rand(20, 45), side = rand(-6, 6);
-                emit(r.x - dx * h / 2, r.y - dy * h / 2, -dx * sp - dy * side, -dy * sp + dx * side, rand(0.8, 1.4));
+                emit(r.x - dx * h / 2, r.y - dy * h / 2, -dx * sp - dy * side, -dy * sp + dx * side, rand(0.8, 1.4), SMOKE);
             }
             if (r.y < -h * 1.5 || r.x < -200 || r.x > W + 200) rockets.splice(i, 1);
+        }
+
+        if ((nextFlyby -= dt) <= 0) {
+            nextFlyby = rand(12, 15);
+            if (turn++ % 2 === 0) {
+                hail = { x: -sprites.hail.w / 2, v: (W + sprites.hail.w) / rand(22, 26), t: 0, acc: 0 };
+            } else {
+                lm = { x: W + sprites.lm.w, v: (W + sprites.lm.w * 2) / rand(20, 24), t: 0 };
+            }
+        }
+        if (hail) {
+            hail.t += dt;
+            hail.x += hail.v * dt;
+            for (hail.acc += dt; hail.acc > 0.05; hail.acc -= 0.05) {
+                emit(hail.x - sprites.hail.w / 2, hailY() + sprites.hail.h * 0.125, -rand(25, 45), rand(-6, 6), rand(1.2, 1.8), DRIVE);
+            }
+            if (hail.x > W + sprites.hail.w / 2 + 20) hail = null;
+        }
+        if (lm) {
+            lm.t += dt;
+            lm.x -= lm.v * dt;
+            if (lm.x < -sprites.lm.w) lm = null;
         }
 
         for (let i = particles.length - 1; i >= 0; i--) {
@@ -247,6 +313,8 @@
             p.vy *= 1 - dt * 0.8;
         }
     }
+
+    function hailY() { return H * (phone ? 0.17 : 0.1) + (hail ? Math.sin(hail.t * 0.8) * 3 : 0); }
 
     function blit(s, x, y, a) {
         const c = Math.cos(a) * dpr, n = Math.sin(a) * dpr;
@@ -297,18 +365,21 @@
 
         for (const p of particles) {
             const f = p.age / p.life;
-            ctx.fillStyle = SMOKE[Math.floor(f * (SMOKE.length - 1))];
+            ctx.fillStyle = p.tbl[Math.floor(f * (p.tbl.length - 1))];
             ctx.globalAlpha = 0.8 * (1 - f);
             ctx.fillText(SMOKE_CHARS[Math.floor(f * SMOKE_CHARS.length)], p.x, p.y);
         }
 
         ctx.globalAlpha = 1;
-        for (const r of rockets) blit(rocketSprite, r.x, r.y, r.h);
+        for (const r of rockets) blit(sprites[r.kind], r.x, r.y, r.h);
+        if (hail) blit(sprites.hail, hail.x, hailY(), Math.sin(hail.t * 0.5) * 0.02);
+        if (lm) blit(sprites.lm, lm.x, H * (phone ? 0.83 : 0.88) + Math.sin(lm.t * 0.9) * 5, Math.sin(lm.t * 0.6) * 0.05);
         ctx.globalAlpha = 1;
     }
 
     function still() {
         t = 12;
+        hail = { x: W / 2, v: 0, t: 0, acc: 0 };
         draw();
     }
 
