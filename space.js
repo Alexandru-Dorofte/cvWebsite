@@ -412,7 +412,7 @@
             earth = { x: W * 0.13, y: H * 0.24, r: m * 0.11 };
             giant = { x: W * 0.86, y: H * 0.22, r: m * 0.065 };
             hole = { x: W * 0.15, y: H * 0.78, r: m * 0.035 };
-            lava = { x: W * 0.07, y: H * 0.5, r: m * 0.045 };
+            lava = { x: W * 0.3, y: H * 0.08, r: m * 0.045 };
         }
 
         Object.assign(earth, { kind: "earth", spin: 0.25, cells: surfaceCells(earth.r) });
