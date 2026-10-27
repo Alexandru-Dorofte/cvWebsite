@@ -178,14 +178,37 @@
         return sphereCells(r).map(p => ({ x: p.x, y: p.y, lat: Math.asin(-p.ny), lon: Math.atan2(p.nx, p.nz), light: lit(p) }));
     }
 
+    // continents on a 10 degree grid, north pole first, starting at 180 W
+    const WORLD = [
+        "              ##                    ",
+        "      ##########          ########  ",
+        " ################ ##################",
+        " #######  ###    #################  ",
+        "     #######     ################   ",
+        "      #####      ###############    ",
+        "       ###      ######## ## ##      ",
+        "       ###      #######  # ## #     ",
+        "          ####   ######     ##      ",
+        "          #####    ###       ####   ",
+        "          #####    ####       ###   ",
+        "           ###     ###       ####   ",
+        "          ###      ##        ####   ",
+        "          ##                      # ",
+        "           #                        ",
+        "####################################",
+        "####################################",
+        "####################################"
+    ];
+
     // rotating planets: each surface returns [colour, brightness factor] for a point
     const SURFACE = {
         earth(lat, lon) {
-            const land = Math.sin(2 * lon + 1.3) * 0.5 + Math.sin(3 * lon + 0.7 + lat * 2) * 0.35 +
-                Math.sin(5 * lon - lat * 4) * 0.2 + Math.cos(lat * 2.5) * 0.3 - 0.35;
+            if (Math.abs(lat) > 1.2) return [WHITE, 1.1];
             const cl = lon + t * 0.08;
-            if (Math.sin(4 * cl + lat * 5) * Math.sin(3 * lat + cl) > 0.45) return [WHITE, 1];
-            return land > 0 ? [GREY, 1] : [DARK, 1];
+            if (Math.sin(4 * cl + lat * 5) * Math.sin(3 * lat + cl) > 0.7) return [GREY, 0.8, false, "~"];
+            const c = Math.floor(((lon + Math.PI) / (2 * Math.PI) % 1 + 1) % 1 * 36);
+            const row = Math.min(17, Math.floor((Math.PI / 2 - lat) / Math.PI * 18));
+            return WORLD[row][c] === "#" ? [WHITE, 1] : [DARK, 0.6, false, "-"];
         },
         lava(lat, lon) {
             const crack = Math.abs(Math.sin(lon * 4 + Math.sin(lat * 5) * 1.5)) * Math.abs(Math.sin(lat * 6 + Math.cos(lon * 3)));
@@ -197,11 +220,11 @@
     function drawBody(b, ox, oy) {
         let col = "";
         for (const c of b.cells) {
-            const [next, k, glow] = SURFACE[b.kind](c.lat, c.lon + t * b.spin);
+            const [next, k, glow, ch] = SURFACE[b.kind](c.lat, c.lon + t * b.spin);
             if (next !== col) ctx.fillStyle = col = next;
             const v = glow ? k : Math.min(1, (0.15 + 0.85 * c.light) * k);
             ctx.globalAlpha = 0.3 + 0.7 * v;
-            ctx.fillText(RAMP[Math.max(1, Math.round(v * 9))], b.x + c.x + ox, b.y + c.y + oy);
+            ctx.fillText(ch || RAMP[Math.max(1, Math.round(v * 9))], b.x + c.x + ox, b.y + c.y + oy);
         }
     }
 
@@ -366,13 +389,13 @@
         const m = Math.min(W, H);
         if (phone) {
             galaxy = { x: W * 0.15, y: H * 0.92, r: m * 0.12 };
-            earth = { x: W * 0.13, y: H * 0.08, r: m * 0.09 };
+            earth = { x: W * 0.14, y: H * 0.08, r: m * 0.11 };
             giant = { x: W * 0.84, y: H * 0.09, r: m * 0.055 };
             hole = { x: W * 0.82, y: H * 0.92, r: m * 0.03 };
             lava = null;
         } else {
             galaxy = { x: W * 0.1, y: H * 0.5, r: m * 0.12 };
-            earth = { x: W * 0.13, y: H * 0.24, r: m * 0.09 };
+            earth = { x: W * 0.13, y: H * 0.24, r: m * 0.11 };
             giant = { x: W * 0.86, y: H * 0.22, r: m * 0.065 };
             hole = { x: W * 0.86, y: H * 0.78, r: m * 0.035 };
             lava = { x: W * 0.15, y: H * 0.78, r: m * 0.045 };
