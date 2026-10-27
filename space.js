@@ -42,7 +42,6 @@
         return out;
     }
     const SMOKE = shades(WHITE, DARK, 16);
-    const DRIVE = shades(GREY, DARK, 16);
 
     const ART = {
         saturn: art(String.raw`
@@ -116,12 +115,15 @@
   /| /\ |\
  /_|/  \|_\
 `),
-        hail: art(String.raw`
-[##]   ________________________________
-[##]==(_______|________|________|______)\
-[##]  (_______|________|________|______)=>
-[##]==(_______|________|________|______)/
-[##]
+        voyager: art(String.raw`
+     .-"""-.
+    /       \
+   |    o    |
+    \       /
+     '-._.-'
+       [#]===========o
+      / | \
+     o  |  '
 `),
         iss: art(String.raw`
 |=|=|  |=|=|     |=|=|  |=|=|
@@ -136,10 +138,10 @@
 
     let W = 0, H = 0, dpr = 1, phone = false, fs = 13, cw = 8, lh = 15;
     let sprites = {}, stars = [];
-    let galaxy, earth, giant, hole;
+    let galaxy, earth, giant, hole, obstacles = [];
     let t = 0, mx = 0, my = 0, sx = 0, sy = 0;
     const particles = [], rockets = [], shooters = [];
-    let lastRocket = "", nextRocket = 2, nextShooter = 3, nextFlyby = 3, turn = 0, hail = null, lm = null, iss = null;
+    let lastRocket = "", nextRocket = 2, nextShooter = 3, nextFlyby = 3, turn = 0, lm = null, voyagers = [], iss = null;
 
     function offscreen(w, h, size) {
         const c = document.createElement("canvas");
@@ -469,8 +471,8 @@
             starship: sprite(ART.starship, 0.75),
             soyuz: sprite(ART.soyuz, 0.75),
             lm: sprite(ART.lm, 0.85),
-            hail: sprite(ART.hail, phone ? 0.8 : 1),
-            iss: sprite(ART.iss, 0.8)
+            iss: sprite(ART.iss, 0.8),
+            voyager: sprite(ART.voyager, 0.75)
         };
 
         stars = [];
@@ -504,6 +506,13 @@
         buildGalaxy();
         bakeGiant();
         bakeMoon(earth);
+        obstacles = [
+            { x: earth.x, y: earth.y, r: earth.r * 1.1 },
+            { x: earth.x + earth.r * 1.45, y: earth.y - earth.r, r: earth.r * 0.4 },
+            { x: giant.x, y: giant.y, r: giant.r * 2 },
+            { x: galaxy.x, y: galaxy.y, r: galaxy.r * 0.85 },
+            { x: hole.x, y: hole.y, r: hole.r * 2 }
+        ];
         buildHole();
 
         if (reduced) still();
@@ -520,7 +529,7 @@
         rockets.push({
             kind, x: rand(W * 0.08, W * 0.92), y: H + sprites[kind].h,
             h: rand(-0.35, 0.35), turn: rand(-0.12, 0.12),
-            v: rand(70, 120) * (phone ? 0.7 : 1), acc: 0
+            v: rand(70, 120) * (phone ? 0.7 : 1), acc: 0, dodge: 0
         });
     }
 
@@ -559,7 +568,16 @@
         for (let i = rockets.length - 1; i >= 0; i--) {
             const r = rockets[i], h = sprites[r.kind].h;
             r.h += r.turn * dt;
-            const dx = Math.sin(r.h), dy = -Math.cos(r.h);
+            // steer around bodies ahead (harder the closer they are), then ease back onto course once clear
+            let a = r.h + r.dodge, steer = 0;
+            for (const o of obstacles) {
+                const ox = o.x - r.x, oy = o.y - r.y, d = Math.hypot(ox, oy), near = o.r + h * 2.5;
+                if (d > near || Math.sin(a) * ox - Math.cos(a) * oy < 0) continue;
+                steer -= Math.sign(Math.sin(a) * oy + Math.cos(a) * ox || 1) * 2.4 * (1 - Math.max(0, d - o.r) / (near - o.r));
+            }
+            r.dodge = steer ? Math.max(-0.9, Math.min(0.9, r.dodge + steer * dt)) : r.dodge * (1 - Math.min(1, dt * 0.8));
+            a = r.h + r.dodge;
+            const dx = Math.sin(a), dy = -Math.cos(a);
             r.x += dx * r.v * dt;
             r.y += dy * r.v * dt;
             for (r.acc += dt; r.acc > 0.04; r.acc -= 0.04) {
@@ -571,28 +589,30 @@
 
         if ((nextFlyby -= dt) <= 0) {
             nextFlyby = rand(12, 15);
-            const next = turn++ % 3;
+            const next = turn++ % 4, d = rand(30, 34), vw = sprites.voyager.w;
             if (next === 0) {
-                hail = { x: -sprites.hail.w / 2, v: (W + sprites.hail.w) / rand(22, 26), t: 0, acc: 0 };
-            } else if (next === 1) {
                 lm = { x: W + sprites.lm.w, v: (W + sprites.lm.w * 2) / rand(20, 24), t: 0 };
+            } else if (next === 1) {
+                // Voyager 1 climbs out across the top, Voyager 2 drifts the other way along the bottom
+                voyagers.push({ x: -vw, y: H * 0.16, vx: (W + vw * 2) / d, vy: -H * 0.1 / d, t: 0 });
+            } else if (next === 3) {
+                voyagers.push({ x: W + vw, y: H * 0.8, vx: -(W + vw * 2) / d, vy: H * 0.12 / d, t: 0 });
             } else {
                 const d = rand(24, 28);
                 iss = { x: -sprites.iss.w, y: H * (phone ? 0.12 : 0.04), v: (W + sprites.iss.w * 2) / d, vy: H * (phone ? 0.22 : 0.3) / d };
             }
         }
+        for (let i = voyagers.length - 1; i >= 0; i--) {
+            const v = voyagers[i];
+            v.t += dt;
+            v.x += v.vx * dt;
+            v.y += v.vy * dt;
+            if (v.x < -sprites.voyager.w * 1.5 || v.x > W + sprites.voyager.w * 1.5) voyagers.splice(i, 1);
+        }
         if (iss) {
             iss.x += iss.v * dt;
             iss.y += iss.vy * dt;
             if (iss.x > W + sprites.iss.w) iss = null;
-        }
-        if (hail) {
-            hail.t += dt;
-            hail.x += hail.v * dt;
-            for (hail.acc += dt; hail.acc > 0.05; hail.acc -= 0.05) {
-                emit(hail.x - sprites.hail.w / 2, hailY(), -rand(25, 45), rand(-6, 6), rand(1.2, 1.8), DRIVE);
-            }
-            if (hail.x > W + sprites.hail.w / 2 + 20) hail = null;
         }
         if (lm) {
             lm.t += dt;
@@ -614,8 +634,6 @@
             p.vy *= 1 - dt * 0.8;
         }
     }
-
-    function hailY() { return H * (phone ? 0.17 : 0.1) + (hail ? Math.sin(hail.t * 0.8) * 3 : 0); }
 
     function blit(s, x, y, a) {
         const c = Math.cos(a) * dpr, n = Math.sin(a) * dpr;
@@ -666,15 +684,15 @@
         }
 
         ctx.globalAlpha = 1;
-        for (const r of rockets) blit(sprites[r.kind], r.x, r.y, r.h);
-        if (hail) blit(sprites.hail, hail.x, hailY(), Math.sin(hail.t * 0.5) * 0.02);
+        for (const r of rockets) blit(sprites[r.kind], r.x, r.y, r.h + r.dodge);
         if (lm) blit(sprites.lm, lm.x, H * (phone ? 0.83 : 0.88) + Math.sin(lm.t * 0.9) * 5, Math.sin(lm.t * 0.6) * 0.05);
         if (iss) blit(sprites.iss, iss.x, iss.y, Math.atan2(iss.vy, iss.v));
+        for (const v of voyagers) blit(sprites.voyager, v.x, v.y, Math.sin(v.t * 0.3) * 0.15);
     }
 
     function still() {
         t = 12;
-        hail = { x: W / 2, v: 0, t: 0, acc: 0 };
+        lm = { x: W / 2, v: 0, t: 0 };
         draw();
     }
 
