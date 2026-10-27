@@ -11,6 +11,14 @@
     const FONT = 'Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace';
     const BG = "#070709", WHITE = "#f2f2f2", GREY = "#9a9a9a", DARK = "#5a5a5a";
     const RAMP = " .:-=+*#%@";
+    // muted accent colours, kept soft so the scene stays mostly black, grey and white
+    const C = {
+        ocean: "#4f7fb8", land: "#86a872", desert: "#c4aa7c", cloud: "#cfd8e2", halo: "#7fa7d8",
+        violet: "#a487d6", lilac: "#d8ccf0", rose: "#e2a6d2", dusk: "#6b5a8c", core: "#f4ead8",
+        hot: "#ffe2b0", amber: "#f0a258", ember: "#a8613a",
+        sand: "#d6bd8a", tan: "#a88b5e", ringA: "#cdb98e", ringB: "#8c7853",
+        magma: "#ff9147", rock: "#7d6e64"
+    };
     const SMOKE_CHARS = "+:··.";
     const LIGHT = [0.55, 0.35, 0.76];
     const DRIFT = [4, 9, 16], PAR = [4, 9, 16], BRIGHT = [0.45, 0.6, 0.9];
@@ -203,8 +211,8 @@
 
     // rotating planets: each surface returns [colour, brightness factor, glow, char] for a point
     // (shared arrays, so nothing is allocated per cell per frame)
-    const ICE = [WHITE, 1.1], CLOUD = [GREY, 0.8, false, "~"], LAND = [WHITE, 1], SEA = [DARK, 0.6, false, "-"];
-    const MAGMA = [WHITE, 1, true], ROCK = [GREY, 0.75], ASH = [DARK, 0.8];
+    const ICE = [WHITE, 1.1], CLOUD = [C.cloud, 0.8, false, "~"], LAND = [C.land, 1], DESERT = [C.desert, 1], SEA = [C.ocean, 0.7, false, "-"];
+    const MAGMA = [C.magma, 1, true], ROCK = [C.rock, 0.75], ASH = [DARK, 0.8];
     const SURFACE = {
         earth(lat, lon) {
             if (Math.abs(lat) > 1.2) return ICE;
@@ -212,7 +220,8 @@
             if (Math.sin(4 * cl + lat * 5) * Math.sin(3 * lat + cl) > 0.7) return CLOUD;
             const c = Math.floor(((lon + Math.PI) / (2 * Math.PI) % 1 + 1) % 1 * 36);
             const row = Math.min(17, Math.floor((Math.PI / 2 - lat) / Math.PI * 18));
-            return WORLD[row][c] === "#" ? LAND : SEA;
+            if (WORLD[row][c] !== "#") return SEA;
+            return Math.abs(lat) > 0.3 && Math.abs(lat) < 0.55 ? DESERT : LAND;
         },
         lava(lat, lon) {
             const crack = Math.abs(Math.sin(lon * 4 + Math.sin(lat * 5) * 1.5)) * Math.abs(Math.sin(lat * 6 + Math.cos(lon * 3)));
@@ -237,7 +246,7 @@
 
     function drawHalo(b, ox, oy) {
         const r = b.r * 1.15, n = Math.round(2 * Math.PI * r / (cw * 1.1));
-        ctx.fillStyle = GREY;
+        ctx.fillStyle = C.halo;
         for (let i = 0; i < n; i++) {
             const a = i / n * Math.PI * 2;
             ctx.globalAlpha = 0.12 + 0.18 * Math.max(0, Math.cos(a - 0.6));
@@ -268,7 +277,7 @@
         const r = giant.r, s = offscreen(r * 4.6, r * 4.6);
         const tilt = -0.35, ct = Math.cos(tilt), st = Math.sin(tilt);
         const back = [], front = [];
-        [[1.55, ":", DARK], [1.95, "-", GREY]].forEach(([k, ch, col]) => {
+        [[1.55, ":", C.ringB], [1.95, "-", C.ringA]].forEach(([k, ch, col]) => {
             const rx = r * k, ry = rx * 0.28, n = Math.round(2 * Math.PI * rx / (cw * 0.9));
             for (let i = 0; i < n; i++) {
                 const a = i / n * Math.PI * 2, ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
@@ -281,11 +290,28 @@
         for (const p of sphereCells(r)) {
             if (front.some(f => Math.abs(f.x - p.x) < cw * 0.7 && Math.abs(f.y - p.y) < lh * 0.6)) continue;
             const b = lit(p);
-            s.g.fillStyle = Math.sin(p.ny * 9 + Math.sin(p.ny * 3) * 1.5) > 0 ? GREY : DARK;
+            s.g.fillStyle = Math.sin(p.ny * 9 + Math.sin(p.ny * 3) * 1.5) > 0 ? C.sand : C.tan;
             s.g.globalAlpha = 0.3 + 0.7 * b;
             s.g.fillText(RAMP[Math.max(1, Math.round(b * 9))], s.w / 2 + p.x, s.h / 2 + p.y);
         }
         giant.img = s;
+    }
+
+    // soft coloured glow: a radial gradient around the origin, drawn squashed and tilted with haze()
+    function glow(r, rgb, a) {
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        g.addColorStop(0, "rgba(" + rgb + "," + a + ")");
+        g.addColorStop(1, "rgba(" + rgb + ",0)");
+        return { g, r };
+    }
+
+    function haze(h, x, y, tilt, squash) {
+        const c = Math.cos(tilt) * dpr, n = Math.sin(tilt) * dpr;
+        ctx.setTransform(c, n, -n * squash, c * squash, x * dpr, y * dpr);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = h.g;
+        ctx.fillRect(-h.r, -h.r, h.r * 2, h.r * 2);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     // spiral galaxy: bright core, two arms with dust lanes and star knots, faint halo
@@ -296,21 +322,24 @@
             for (let i = 0; i < n; i++) {
                 const f = i / n, a = arm * Math.PI + f * 3.8, spread = 0.3 + f;
                 const k = 1 - f * 0.75, r = R * (0.12 + f * 0.88) * rand(0.94, 1.06);
-                add(r, a + rand(-0.25, 0.25) * spread, k, k > 0.92 ? "*" : k > 0.52 ? "+" : k > 0.38 ? "·" : ".", k > 0.7 ? WHITE : GREY);
+                add(r, a + rand(-0.25, 0.25) * spread, k, k > 0.92 ? "*" : k > 0.52 ? "+" : k > 0.38 ? "·" : ".", k > 0.7 ? C.lilac : C.violet);
+                if (i % 2 === 0) add(r * rand(1.02, 1.12), a + rand(-0.4, 0.4) * spread, k * 0.5, "·", C.violet);
                 if (i % 3 === 0) add(r * 0.93, a - 0.22, 0.35, ".", DARK);
-                if (i % 17 === 8) add(r, a, 0.85, "o", WHITE);
+                if (i % 17 === 8) add(r, a, 0.85, "o", C.rose);
             }
         }
         for (let i = 0; i < 24; i++) {
             const r = R * Math.pow(Math.random(), 1.5) * 0.16;
-            add(r, rand(0, 6.28), 1 - r / (R * 0.2), r < R * 0.05 ? "@" : r < R * 0.1 ? "%" : "*", WHITE);
+            add(r, rand(0, 6.28), 1 - r / (R * 0.2), r < R * 0.05 ? "@" : r < R * 0.1 ? "%" : "*", C.core);
         }
-        for (let i = 0; i < (phone ? 25 : 45); i++) add(R * rand(0.2, 1.15), rand(0, 6.28), 0.15, "·", DARK);
+        for (let i = 0; i < (phone ? 25 : 45); i++) add(R * rand(0.2, 1.15), rand(0, 6.28), 0.15, "·", C.dusk);
         galaxy.pts = pts;
+        galaxy.haze = glow(R * 1.1, "164,135,214", 0.14);
     }
 
     function drawGalaxy(ox, oy) {
         const tilt = -0.45, ct = Math.cos(tilt), st = Math.sin(tilt);
+        haze(galaxy.haze, galaxy.x + ox, galaxy.y + oy, tilt, 0.5);
         let col = "";
         for (const p of galaxy.pts) {
             const a = p.a + t * 0.12, x = Math.cos(a) * p.r, y = Math.sin(a) * p.r * 0.5;
@@ -338,14 +367,14 @@
                 lens.push({ x: Math.cos(a) * R, y: Math.sin(a) * R * 0.95, a, ch, k: base * (Math.sin(a) < 0 ? 1 : 0.55) });
             }
         }
-        Object.assign(hole, { disk, lens });
+        Object.assign(hole, { disk, lens, glow: glow(r * 3.2, "240,162,88", 0.16) });
     }
 
     function drawDisk(x0, y0, front) {
         let col = "";
         for (const p of hole.disk) {
             if (p.front !== front) continue;
-            const next = p.k > 0.5 ? WHITE : GREY;
+            const next = p.k > 0.7 ? C.hot : p.k > 0.4 ? C.amber : C.ember;
             if (next !== col) ctx.fillStyle = col = next;
             ctx.globalAlpha = (0.25 + 0.6 * p.k) * (0.55 + 0.45 * Math.sin(p.a * 3 - t * 2.2 + p.k * 4));
             ctx.fillText(p.ch, x0 + p.x, y0 + p.y);
@@ -354,13 +383,14 @@
 
     function drawBlackHole(ox, oy) {
         const x0 = hole.x + ox, y0 = hole.y + oy;
+        haze(hole.glow, x0, y0, 0.12, 0.6);
         drawDisk(x0, y0, false);
         ctx.globalAlpha = 1;
         ctx.fillStyle = BG;
         ctx.beginPath();
         ctx.arc(x0, y0, hole.r * 1.02, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = WHITE;
+        ctx.fillStyle = C.hot;
         for (const p of hole.lens) {
             ctx.globalAlpha = p.k * (0.6 + 0.4 * Math.sin(p.a * 4 + t * 1.8));
             ctx.fillText(p.ch, x0 + p.x, y0 + p.y);
