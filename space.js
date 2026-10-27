@@ -78,7 +78,7 @@
     };
 
     let W = 0, H = 0, dpr = 1, phone = false, fs = 13, cw = 8, lh = 15;
-    let sprites = {}, stars = [], earthCells = [];
+    let sprites = {}, stars = [];
     let moon, earth, giant, rocky;
     let t = 0, mx = 0, my = 0, sx = 0, sy = 0;
     const particles = [], rockets = [], shooters = [];
@@ -125,17 +125,52 @@
 
     const lit = p => Math.max(0, p.nx * LIGHT[0] + p.ny * LIGHT[1] + p.nz * LIGHT[2]);
 
-    // plain shaded sphere; craters darken a few spots
-    function bakeSphere(body, craters) {
-        const r = body.r, s = offscreen(r * 2 + cw * 2, r * 2 + lh * 2);
-        s.g.fillStyle = GREY;
-        for (const p of sphereCells(r)) {
-            let b = lit(p);
-            if (craters && Math.sin(p.nx * 9 + 1) * Math.sin(p.ny * 8 + 2) > 0.6) b *= 0.45;
-            s.g.globalAlpha = 0.25 + 0.6 * b;
-            s.g.fillText(RAMP[Math.max(1, Math.round(b * 9))], s.w / 2 + p.x, s.h / 2 + p.y);
+    function surfaceCells(r) {
+        return sphereCells(r).map(p => ({ x: p.x, y: p.y, lat: Math.asin(-p.ny), lon: Math.atan2(p.nx, p.nz), light: lit(p) }));
+    }
+
+    // rotating planets: each surface returns [colour, brightness factor] for a point
+    const CRATERS = [[0.3, 0.5, 0.35], [-0.4, 2.0, 0.28], [0.8, 3.6, 0.22], [-0.1, 4.8, 0.4], [0.5, 1.3, 0.18], [-0.7, 5.6, 0.25]];
+    const SURFACE = {
+        earth(lat, lon) {
+            const land = Math.sin(2 * lon + 1.3) * 0.5 + Math.sin(3 * lon + 0.7 + lat * 2) * 0.35 +
+                Math.sin(5 * lon - lat * 4) * 0.2 + Math.cos(lat * 2.5) * 0.3 - 0.35;
+            const cl = lon + t * 0.08;
+            if (Math.sin(4 * cl + lat * 5) * Math.sin(3 * lat + cl) > 0.45) return [WHITE, 1];
+            return land > 0 ? [GREY, 1] : [DARK, 1];
+        },
+        ice(lat, lon) {
+            if (Math.abs(lat) > 0.95 + 0.1 * Math.sin(lon * 3)) return [WHITE, 1.1];
+            const ridge = Math.sin(3 * lon + lat * 2) + Math.sin(5 * lon - lat * 4) * 0.5 + Math.sin(lat * 7) * 0.3;
+            return ridge > 0.5 ? [GREY, 1] : [DARK, 0.85];
+        },
+        rocky(lat, lon) {
+            for (const [la, lo, r] of CRATERS) {
+                const d = Math.acos(Math.min(1, Math.sin(lat) * Math.sin(la) + Math.cos(lat) * Math.cos(la) * Math.cos(lon - lo)));
+                if (d < r * 0.7) return [DARK, 0.55];
+                if (d < r) return [WHITE, 1.15];
+            }
+            return [GREY, 1];
         }
-        body.img = s;
+    };
+
+    function drawBody(b, ox, oy) {
+        let col = "";
+        for (const c of b.cells) {
+            const [next, k] = SURFACE[b.kind](c.lat, c.lon + t * b.spin);
+            if (next !== col) ctx.fillStyle = col = next;
+            const v = Math.min(1, (0.15 + 0.85 * c.light) * k);
+            ctx.globalAlpha = 0.3 + 0.7 * v;
+            ctx.fillText(RAMP[Math.max(1, Math.round(v * 9))], b.x + c.x + ox, b.y + c.y + oy);
+        }
+    }
+
+    function drawMoonlet(ox, oy, front) {
+        const a = t * 0.5, z = Math.sin(a);
+        if ((z > 0) !== front) return;
+        ctx.fillStyle = GREY;
+        ctx.globalAlpha = front ? 0.9 : 0.45;
+        ctx.fillText(front ? "@" : "o", rocky.x + Math.cos(a) * rocky.r * 1.8 + ox, rocky.y + z * rocky.r * 0.45 - Math.cos(a) * rocky.r * 0.3 + oy);
     }
 
     function bakeGiant() {
@@ -200,23 +235,20 @@
 
         const m = Math.min(W, H);
         if (phone) {
-            moon = { x: W * 0.86, y: H * 0.09, r: m * 0.07 };
+            moon = { x: W * 0.86, y: H * 0.09, r: m * 0.075 };
             earth = { x: W * 0.13, y: H * 0.08, r: m * 0.09 };
             giant = { x: W * 0.15, y: H * 0.92, r: m * 0.055 };
-            rocky = { x: W * 0.86, y: H * 0.92, r: m * 0.06 };
+            rocky = { x: W * 0.84, y: H * 0.92, r: m * 0.065 };
         } else {
-            moon = { x: W * 0.86, y: H * 0.22, r: m * 0.06 };
+            moon = { x: W * 0.86, y: H * 0.22, r: m * 0.08 };
             earth = { x: W * 0.13, y: H * 0.24, r: m * 0.09 };
             giant = { x: W * 0.15, y: H * 0.78, r: m * 0.065 };
-            rocky = { x: W * 0.86, y: H * 0.78, r: m * 0.075 };
+            rocky = { x: W * 0.86, y: H * 0.78, r: m * 0.085 };
         }
 
-        earthCells = sphereCells(earth.r).map(p => ({
-            x: p.x, y: p.y, lat: Math.asin(-p.ny), lon: Math.atan2(p.nx, p.nz), light: lit(p)
-        }));
-
-        bakeSphere(moon, false);
-        bakeSphere(rocky, true);
+        Object.assign(earth, { kind: "earth", spin: 0.25, cells: surfaceCells(earth.r) });
+        Object.assign(moon, { kind: "ice", spin: 0.15, cells: surfaceCells(moon.r) });
+        Object.assign(rocky, { kind: "rocky", spin: 0.1, cells: surfaceCells(rocky.r) });
         bakeGiant();
 
         if (reduced) still();
@@ -352,21 +384,9 @@
         const ox = sx * 6, oy = sy * 6;
         ctx.globalAlpha = 1;
         ctx.drawImage(giant.img.c, giant.x + ox - giant.img.w / 2, giant.y + oy - giant.img.h / 2, giant.img.w, giant.img.h);
-        for (const b of [moon, rocky]) ctx.drawImage(b.img.c, b.x + ox - b.img.w / 2, b.y + oy - b.img.h / 2, b.img.w, b.img.h);
-
-        let col = "";
-        for (const c of earthCells) {
-            const lon = c.lon + t * 0.25;
-            const land = Math.sin(2 * lon + 1.3) * 0.5 + Math.sin(3 * lon + 0.7 + c.lat * 2) * 0.35 +
-                Math.sin(5 * lon - c.lat * 4) * 0.2 + Math.cos(c.lat * 2.5) * 0.3 - 0.35;
-            const cl = lon + t * 0.08;
-            const cloud = Math.sin(4 * cl + c.lat * 5) * Math.sin(3 * c.lat + cl) > 0.45;
-            const next = cloud ? WHITE : land > 0 ? GREY : DARK;
-            if (next !== col) ctx.fillStyle = col = next;
-            const b = 0.15 + 0.85 * c.light;
-            ctx.globalAlpha = 0.35 + 0.65 * b;
-            ctx.fillText(RAMP[Math.max(1, Math.round(b * 9))], earth.x + c.x + ox, earth.y + c.y + oy);
-        }
+        drawMoonlet(ox, oy, false);
+        for (const b of [earth, moon, rocky]) drawBody(b, ox, oy);
+        drawMoonlet(ox, oy, true);
 
         for (const p of particles) {
             const f = p.age / p.life;
