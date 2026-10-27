@@ -89,7 +89,7 @@
 
     let W = 0, H = 0, dpr = 1, phone = false, fs = 13, cw = 8, lh = 15;
     let sprites = {}, stars = [];
-    let moon, earth, giant, rocky;
+    let storm, earth, giant, lava, hole;
     let t = 0, mx = 0, my = 0, sx = 0, sy = 0;
     const particles = [], rockets = [], shooters = [];
     let nextRocket = 2, nextShooter = 3, nextFlyby = 3, turn = 0, hail = null, lm = null, iss = null;
@@ -140,7 +140,6 @@
     }
 
     // rotating planets: each surface returns [colour, brightness factor] for a point
-    const CRATERS = [[0.3, 0.5, 0.35], [-0.4, 2.0, 0.28], [0.8, 3.6, 0.22], [-0.1, 4.8, 0.4], [0.5, 1.3, 0.18], [-0.7, 5.6, 0.25]];
     const SURFACE = {
         earth(lat, lon) {
             const land = Math.sin(2 * lon + 1.3) * 0.5 + Math.sin(3 * lon + 0.7 + lat * 2) * 0.35 +
@@ -149,29 +148,38 @@
             if (Math.sin(4 * cl + lat * 5) * Math.sin(3 * lat + cl) > 0.45) return [WHITE, 1];
             return land > 0 ? [GREY, 1] : [DARK, 1];
         },
-        ice(lat, lon) {
-            if (Math.abs(lat) > 0.95 + 0.1 * Math.sin(lon * 3)) return [WHITE, 1.1];
-            const ridge = Math.sin(3 * lon + lat * 2) + Math.sin(5 * lon - lat * 4) * 0.5 + Math.sin(lat * 7) * 0.3;
-            return ridge > 0.5 ? [GREY, 1] : [DARK, 0.85];
+        storm(lat, lon) {
+            const flow = lon + t * 0.12 * Math.sin(lat * 4);
+            const dl = ((flow - 1 + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+            const ex = dl / 0.5, ey = (lat - 0.35) / 0.22, d = Math.hypot(ex, ey);
+            if (d < 1) return Math.sin(d * 9 + Math.atan2(ey, ex) * 2 - t * 2.5) > 0 ? [WHITE, 1.1] : [DARK, 0.8];
+            return Math.sin(lat * 9 + Math.sin(flow * 3) * 0.4) > 0 ? [GREY, 1] : [DARK, 0.9];
         },
-        rocky(lat, lon) {
-            for (const [la, lo, r] of CRATERS) {
-                const d = Math.acos(Math.min(1, Math.sin(lat) * Math.sin(la) + Math.cos(lat) * Math.cos(la) * Math.cos(lon - lo)));
-                if (d < r * 0.7) return [DARK, 0.55];
-                if (d < r) return [WHITE, 1.15];
-            }
-            return [GREY, 1];
+        lava(lat, lon) {
+            const crack = Math.abs(Math.sin(lon * 4 + Math.sin(lat * 5) * 1.5)) * Math.abs(Math.sin(lat * 6 + Math.cos(lon * 3)));
+            if (crack < 0.09) return [WHITE, 0.75 + 0.25 * Math.sin(t * 3 + lon * 5), true];
+            return Math.sin(lon * 2 + lat * 3) > 0.6 ? [GREY, 0.75] : [DARK, 0.8];
         }
     };
 
     function drawBody(b, ox, oy) {
         let col = "";
         for (const c of b.cells) {
-            const [next, k] = SURFACE[b.kind](c.lat, c.lon + t * b.spin);
+            const [next, k, glow] = SURFACE[b.kind](c.lat, c.lon + t * b.spin);
             if (next !== col) ctx.fillStyle = col = next;
-            const v = Math.min(1, (0.15 + 0.85 * c.light) * k);
+            const v = glow ? k : Math.min(1, (0.15 + 0.85 * c.light) * k);
             ctx.globalAlpha = 0.3 + 0.7 * v;
             ctx.fillText(RAMP[Math.max(1, Math.round(v * 9))], b.x + c.x + ox, b.y + c.y + oy);
+        }
+    }
+
+    function drawHalo(b, ox, oy) {
+        const r = b.r * 1.15, n = Math.round(2 * Math.PI * r / (cw * 1.1));
+        ctx.fillStyle = GREY;
+        for (let i = 0; i < n; i++) {
+            const a = i / n * Math.PI * 2;
+            ctx.globalAlpha = 0.12 + 0.18 * Math.max(0, Math.cos(a - 0.6));
+            ctx.fillText("·", b.x + Math.cos(a) * r + ox, b.y + Math.sin(a) * r + oy);
         }
     }
 
@@ -217,6 +225,51 @@
         giant.img = s;
     }
 
+    // black hole: a flattened accretion disk plus the far side of it lensed over and under the shadow
+    function buildHole() {
+        const r = hole.r, disk = [], lens = [];
+        const tilt = 0.12, ct = Math.cos(tilt), st = Math.sin(tilt);
+        for (let k = 0; k < 5; k++) {
+            const rx = r * (1.35 + k * 0.32), ry = rx * 0.24, n = Math.round(2 * Math.PI * rx / (cw * 0.85));
+            for (let i = 0; i < n; i++) {
+                const a = i / n * Math.PI * 2, ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
+                disk.push({ x: ex * ct - ey * st, y: ex * st + ey * ct, a, k: 1 - k / 5, ch: k < 2 ? "=" : k < 4 ? "-" : ".", front: ey > 0 });
+            }
+        }
+        for (const [rr, ch, base] of [[1.12, "·", 0.9], [1.35, ".", 0.45]]) {
+            const R = r * rr, n = Math.round(2 * Math.PI * R / (cw * 0.8));
+            for (let i = 0; i < n; i++) {
+                const a = i / n * Math.PI * 2;
+                lens.push({ x: Math.cos(a) * R, y: Math.sin(a) * R * 0.95, a, ch, k: base * (Math.sin(a) < 0 ? 1 : 0.55) });
+            }
+        }
+        Object.assign(hole, { disk, lens });
+    }
+
+    function drawBlackHole(ox, oy) {
+        const x0 = hole.x + ox, y0 = hole.y + oy;
+        const disk = front => {
+            for (const p of hole.disk) {
+                if (p.front !== front) continue;
+                ctx.fillStyle = p.k > 0.5 ? WHITE : GREY;
+                ctx.globalAlpha = (0.25 + 0.6 * p.k) * (0.55 + 0.45 * Math.sin(p.a * 3 - t * 2.2 + p.k * 4));
+                ctx.fillText(p.ch, x0 + p.x, y0 + p.y);
+            }
+        };
+        disk(false);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = BG;
+        ctx.beginPath();
+        ctx.arc(x0, y0, hole.r * 1.02, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = WHITE;
+        for (const p of hole.lens) {
+            ctx.globalAlpha = p.k * (0.6 + 0.4 * Math.sin(p.a * 4 + t * 1.8));
+            ctx.fillText(p.ch, x0 + p.x, y0 + p.y);
+        }
+        disk(true);
+    }
+
     function resize() {
         W = space.clientWidth;
         H = space.clientHeight;
@@ -253,21 +306,24 @@
 
         const m = Math.min(W, H);
         if (phone) {
-            moon = { x: W * 0.86, y: H * 0.09, r: m * 0.075 };
+            storm = { x: W * 0.86, y: H * 0.09, r: m * 0.075 };
             earth = { x: W * 0.13, y: H * 0.08, r: m * 0.09 };
             giant = { x: W * 0.15, y: H * 0.92, r: m * 0.055 };
-            rocky = { x: W * 0.84, y: H * 0.92, r: m * 0.065 };
+            hole = { x: W * 0.82, y: H * 0.92, r: m * 0.03 };
+            lava = null;
         } else {
-            moon = { x: W * 0.86, y: H * 0.22, r: m * 0.08 };
+            storm = { x: W * 0.86, y: H * 0.22, r: m * 0.08 };
             earth = { x: W * 0.13, y: H * 0.24, r: m * 0.09 };
             giant = { x: W * 0.15, y: H * 0.78, r: m * 0.065 };
-            rocky = { x: W * 0.86, y: H * 0.78, r: m * 0.085 };
+            hole = { x: W * 0.86, y: H * 0.78, r: m * 0.035 };
+            lava = { x: W * 0.07, y: H * 0.5, r: m * 0.045 };
         }
 
         Object.assign(earth, { kind: "earth", spin: 0.25, cells: surfaceCells(earth.r) });
-        Object.assign(moon, { kind: "ice", spin: 0.15, cells: surfaceCells(moon.r) });
-        Object.assign(rocky, { kind: "rocky", spin: 0.1, cells: surfaceCells(rocky.r) });
+        Object.assign(storm, { kind: "storm", spin: 0.2, cells: surfaceCells(storm.r) });
+        if (lava) Object.assign(lava, { kind: "lava", spin: 0.08, cells: surfaceCells(lava.r) });
         bakeGiant();
+        buildHole();
 
         if (reduced) still();
     }
@@ -413,11 +469,13 @@
         ctx.globalAlpha = 1;
         ctx.drawImage(giant.img.c, giant.x + ox - giant.img.w / 2, giant.y + oy - giant.img.h / 2, giant.img.w, giant.img.h);
         drawRing(giant.front, 0.8, ox, oy);
-        drawMoonlet(rocky, 0.5, 1.8, ox, oy, false);
+        drawMoonlet(storm, 0.6, 1.6, ox, oy, false);
         drawMoonlet(earth, 0.35, phone ? 1.5 : 1.9, ox, oy, false);
-        for (const b of [earth, moon, rocky]) drawBody(b, ox, oy);
-        drawMoonlet(rocky, 0.5, 1.8, ox, oy, true);
+        drawHalo(earth, ox, oy);
+        for (const b of [earth, storm, lava]) if (b) drawBody(b, ox, oy);
+        drawMoonlet(storm, 0.6, 1.6, ox, oy, true);
         drawMoonlet(earth, 0.35, phone ? 1.5 : 1.9, ox, oy, true);
+        drawBlackHole(ox, oy);
 
         for (const p of particles) {
             const f = p.age / p.life;
