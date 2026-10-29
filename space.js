@@ -152,7 +152,8 @@
         g.font = (size || fs) + "px " + FONT;
         g.textAlign = "center";
         g.textBaseline = "middle";
-        return { c, g, w, h };
+        // report the size the bitmap really covers, so it is drawn 1:1 and not resampled
+        return { c, g, w: c.width / dpr, h: c.height / dpr };
     }
 
     function sprite(lines, scale) {
@@ -311,7 +312,7 @@
         const m = b.moon, x = b.x + b.r * 1.45 + ox, y = b.y - b.r * (1 + 0.04 * Math.sin(t * 0.9)) + oy;
         haze(b.moonGlow, x, y, 0, 1, 0.8 + 0.2 * Math.sin(t * 1.3));
         ctx.globalAlpha = 1;
-        ctx.drawImage(m.c, x - m.w / 2, y - m.h / 2, m.w, m.h);
+        ctx.drawImage(m.c, snap(x - m.w / 2), snap(y - m.h / 2), m.w, m.h);
     }
 
     // ring points stay put (the baked planet leaves gaps for the front ones); a brightness wave makes them spin
@@ -452,7 +453,7 @@
     function resize() {
         W = space.clientWidth;
         H = space.clientHeight;
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        dpr = Math.min(window.devicePixelRatio || 1, 3);
         phone = W < 600;
         canvas.width = Math.round(W * dpr);
         canvas.height = Math.round(H * dpr);
@@ -663,7 +664,14 @@
         }
     }
 
+    // round to the nearest device pixel so unrotated bitmaps stay crisp
+    function snap(v) { return Math.round(v * dpr) / dpr; }
+
     function blit(s, x, y, a) {
+        if (Math.abs(a) < 0.002) {
+            ctx.drawImage(s.c, snap(x - s.w / 2), snap(y - s.h / 2), s.w, s.h);
+            return;
+        }
         const c = Math.cos(a) * dpr, n = Math.sin(a) * dpr;
         ctx.setTransform(c, n, -n, c, x * dpr, y * dpr);
         ctx.drawImage(s.c, -s.w / 2, -s.h / 2, s.w, s.h);
@@ -695,7 +703,7 @@
         const ox = sx * 6, oy = sy * 6;
         drawRing(giant.back, 0.6, ox, oy);
         ctx.globalAlpha = 1;
-        ctx.drawImage(giant.img.c, giant.x + ox - giant.img.w / 2, giant.y + oy - giant.img.h / 2, giant.img.w, giant.img.h);
+        ctx.drawImage(giant.img.c, snap(giant.x + ox - giant.img.w / 2), snap(giant.y + oy - giant.img.h / 2), giant.img.w, giant.img.h);
         drawRing(giant.front, 0.8, ox, oy);
         drawGalaxy(ox, oy);
         drawHalo(earth, ox, oy);
