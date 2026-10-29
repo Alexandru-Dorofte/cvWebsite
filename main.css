@@ -106,7 +106,7 @@ a:hover {
     left: 50%;
     bottom: 3%;
     width: 100px;
-    height: 100px;
+    height: 64px;
     margin-left: -50px;
     z-index: 1;
   }
@@ -157,7 +157,7 @@ a:hover {
     position: absolute;
     left: 0;
     right: 0;
-    top: -6px;
+    top: 2px;
     color: #bbb;
     font-size: 12px;
     letter-spacing: 3px;
