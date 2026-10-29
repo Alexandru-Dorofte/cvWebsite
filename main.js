@@ -9,9 +9,9 @@ const textArray = [
     "Let's connect on LinkedIn!",
     "Email me for my résumé."
 ];
-const typingDelay = 100;
-const erasingDelay = 100;
-const newTextDelay = 2000;
+const typingDelay = 45;
+const erasingDelay = 25;
+const newTextDelay = 1600;
 let textArrayIndex = 0;
 let charIndex = 0;
 
@@ -24,7 +24,7 @@ function type() {
     }
     else {
         cursorSpan.classList.remove("typing");
-        setTimeout(erase, typingDelay);
+        setTimeout(erase, newTextDelay);
     }
 }
 
@@ -33,13 +33,13 @@ function erase() {
         if(!cursorSpan.classList.contains("typing")) cursorSpan.classList.add("typing");
         typedTextSpan.textContent = textArray[textArrayIndex].substring(0,charIndex-1);
         charIndex--;
-        setTimeout(erase, typingDelay);
+        setTimeout(erase, erasingDelay);
     }
     else {
         cursorSpan.classList.remove("typing");
         textArrayIndex++;
         if(textArrayIndex>=textArray.length) textArrayIndex=0;
-        setTimeout(type, typingDelay + 1100);
+        setTimeout(type, 500);
     }
 }
 
@@ -63,4 +63,19 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         requestAnimationFrame(step);
     });
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+    const link = document.querySelector(".scroll-dwn-link");
+    function dismiss() {
+        link.classList.remove("hint");
+        window.removeEventListener("scroll", onScroll);
+    }
+    function onScroll() {
+        if (window.scrollY > 40) dismiss();
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    setTimeout(function() {
+        if (window.scrollY <= 40) link.classList.add("hint");
+    }, 2500);
 });

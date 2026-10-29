@@ -151,6 +151,44 @@ a:hover {
     }
   }
 
+  .scroll-dwn-link::before{
+    content: "scroll";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -6px;
+    color: #bbb;
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-align: center;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity .6s;
+    pointer-events: none;
+  }
+  .scroll-dwn-link.hint::before{
+    opacity: 1;
+  }
+  .scroll-dwn-link.hint{
+    animation: wobble 2.4s ease-in-out infinite;
+  }
+  .scroll-dwn-link.hint .scroll-dwn-btn{
+    border-width: 3px;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, .7));
+  }
+  @keyframes wobble {
+    0%, 55%, 100% { transform: translateY(0) rotate(0); }
+    10% { transform: translateY(-10px) rotate(-6deg); }
+    20% { transform: translateY(4px) rotate(5deg); }
+    30% { transform: translateY(-5px) rotate(-3deg); }
+    40% { transform: translateY(2px) rotate(2deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-dwn-link.hint{
+      animation: none;
+    }
+  }
+
 footer {
     color: white;
     border-top: 1px solid #333;
@@ -260,6 +298,7 @@ footer {
     margin: 6px 0 2px;
 }
 .htl .where {
+    display: block;
     color: #bbb;
     font-size: 14px;
 }
@@ -272,6 +311,13 @@ footer {
     background-color: rgba(255, 255, 255, .05);
     color: #bbb;
     font-size: 13px;
+}
+.htl .blurb {
+    max-width: 300px;
+    margin: 12px auto 0;
+    color: #9a969a;
+    font-size: 13px;
+    line-height: 1.5;
 }
 
 @media (max-width: 576px) {
@@ -305,6 +351,9 @@ footer {
   .htl li:last-child::before {
     bottom: auto;
     height: 10px;
+  }
+  .htl .blurb {
+    margin-left: 0;
   }
   .htl .dot {
     left: 0;
