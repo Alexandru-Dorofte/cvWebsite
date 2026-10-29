@@ -161,6 +161,7 @@ a:hover {
     color: #bbb;
     font-size: 12px;
     letter-spacing: 3px;
+    text-indent: 3px;
     text-align: center;
     text-transform: uppercase;
     opacity: 0;

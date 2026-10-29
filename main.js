@@ -9,9 +9,9 @@ const textArray = [
     "Let's connect on LinkedIn!",
     "Email me for my résumé."
 ];
-const typingDelay = 45;
-const erasingDelay = 25;
-const newTextDelay = 1600;
+const typingDelay = 65;
+const erasingDelay = 35;
+const newTextDelay = 3600;
 let textArrayIndex = 0;
 let charIndex = 0;
 
