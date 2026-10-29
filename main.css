@@ -153,6 +153,7 @@ a:hover {
 
   .scroll-dwn-link::before{
     content: "scroll";
+    content: "scroll" / "";
     position: absolute;
     left: 0;
     right: 0;

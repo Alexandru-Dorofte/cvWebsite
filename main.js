@@ -67,15 +67,15 @@ document.addEventListener("DOMContentLoaded", function() {
 
 document.addEventListener("DOMContentLoaded", function() {
     const link = document.querySelector(".scroll-dwn-link");
-    function dismiss() {
+    if (window.scrollY > 40) return;
+    const timer = setTimeout(function() {
+        link.classList.add("hint");
+    }, 2500);
+    function onScroll() {
+        if (window.scrollY <= 40) return;
+        clearTimeout(timer);
         link.classList.remove("hint");
         window.removeEventListener("scroll", onScroll);
     }
-    function onScroll() {
-        if (window.scrollY > 40) dismiss();
-    }
     window.addEventListener("scroll", onScroll, { passive: true });
-    setTimeout(function() {
-        if (window.scrollY <= 40) link.classList.add("hint");
-    }, 2500);
 });
