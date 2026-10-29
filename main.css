@@ -236,7 +236,7 @@ footer {
 .htl {
     display: flex;
     list-style: none;
-    max-width: 1100px;
+    max-width: 1240px;
     margin: 10px auto 0;
     padding: 20px 0 10px;
     overflow-x: auto;
@@ -294,8 +294,13 @@ footer {
     letter-spacing: 1px;
 }
 .htl h3 {
-    font-size: 18px;
+    font-size: 17px;
     margin: 6px 0 2px;
+}
+@media (min-width: 1280px) {
+    .htl h3 {
+        white-space: nowrap;
+    }
 }
 .htl .where {
     display: block;
